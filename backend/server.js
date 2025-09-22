@@ -1,6 +1,6 @@
 /**
  * VeloHub V3 - Backend Server
- * VERSION: v1.0.7 | DATE: 2025-01-27 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.0.8 | DATE: 2025-01-27 | AUTHOR: VeloHub Development Team
  */
 
 const express = require('express');
@@ -656,7 +656,7 @@ app.post('/api/chatbot/ask', async (req, res) => {
       aiProvider: aiProvider,
       faqUsed: searchResults.faq ? searchResults.faq._id : null,
       articlesUsed: searchResults.articles.map(a => a._id),
-      sitesUsed: searchResults.sitesContext ? true : false
+      sitesUsed: false // Sites externos removidos
     });
 
     // Preparar resposta para o frontend
@@ -680,7 +680,7 @@ app.post('/api/chatbot/ask', async (req, res) => {
           answer: searchResults.faq.answer,
           relevanceScore: searchResults.faq.relevanceScore
         } : null,
-        sitesUsed: searchResults.sitesContext ? true : false,
+        sitesUsed: false, // Sites externos removidos
         timestamp: new Date().toISOString()
       }
     };

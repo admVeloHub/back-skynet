@@ -1,5 +1,5 @@
 // Search Service - Busca inteligente em FAQ e Artigos
-// VERSION: v2.0.1 | DATE: 2025-01-27 | AUTHOR: Lucas Gravina - VeloHub Development Team
+// VERSION: v2.0.2 | DATE: 2025-01-27 | AUTHOR: Lucas Gravina - VeloHub Development Team
 const cosineSimilarity = require('cosine-similarity');
 const axios = require('axios');
 
@@ -258,7 +258,7 @@ class SearchService {
   }
 
   /**
-   * Busca híbrida avançada: FAQ + Artigos + Sites
+   * Busca híbrida: FAQ + Artigos (sem sites externos)
    * @param {string} question - Pergunta do usuário
    * @param {Array} faqData - Dados do FAQ
    * @param {Array} articlesData - Dados dos artigos
@@ -267,17 +267,16 @@ class SearchService {
   async hybridSearch(question, faqData, articlesData) {
     console.log(`🔍 Search: Iniciando busca híbrida para: "${question}"`);
     
-    const [faqResult, articlesResult, sitesContext] = await Promise.all([
+    const [faqResult, articlesResult] = await Promise.all([
       this.findRelevantFAQ(question, faqData),
-      this.findRelevantArticles(question, articlesData),
-      this.searchAuthorizedSites(question)
+      this.findRelevantArticles(question, articlesData)
     ]);
 
     return {
       faq: faqResult,
       articles: articlesResult,
-      sitesContext: sitesContext,
-      hasResults: !!(faqResult || articlesResult.length > 0 || sitesContext)
+      sitesContext: null, // Removido sites externos
+      hasResults: !!(faqResult || articlesResult.length > 0)
     };
   }
 
