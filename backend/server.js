@@ -1,6 +1,6 @@
 /**
  * VeloHub V3 - Backend Server
- * VERSION: v1.0.6 | DATE: 2025-01-27 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.0.7 | DATE: 2025-01-27 | AUTHOR: VeloHub Development Team
  */
 
 const express = require('express');
@@ -40,6 +40,34 @@ app.use((req, res, next) => {
     console.log('🔍 Debug: Headers recebidos:', JSON.stringify(req.headers, null, 2));
     console.log('🔍 Debug: Body recebido:', JSON.stringify(req.body, null, 2));
   }
+  next();
+});
+
+// Middleware para capturar bytes brutos da resposta (diagnóstico)
+app.use((req, res, next) => {
+  const oldWrite = res.write;
+  const oldEnd = res.end;
+  const chunks = [];
+
+  res.write = function(chunk, ...args) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    return oldWrite.apply(res, [chunk, ...args]);
+  };
+  
+  res.end = function(chunk, ...args) {
+    if (chunk) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    const bodyBuf = Buffer.concat(chunks);
+    
+    if (req.path === '/api/chatbot/ask' && res.get('Content-Type')?.includes('application/json')) {
+      console.log('--- OUTGOING RAW BYTES (first 200) ---');
+      console.log('UTF8:', bodyBuf.slice(0,200).toString('utf8'));
+      console.log('HEX:', bodyBuf.slice(0,50));
+      console.log('First byte:', bodyBuf[0], '(', String.fromCharCode(bodyBuf[0]), ')');
+    }
+    
+    return oldEnd.apply(res, [chunk, ...args]);
+  };
+  
   next();
 });
 
@@ -659,10 +687,17 @@ app.post('/api/chatbot/ask', async (req, res) => {
 
     console.log(`✅ Chat V2: Resposta enviada para ${cleanUserId} (${responseSource}${aiProvider ? ` - ${aiProvider}` : ''})`);
     
+    // Verificar se headers já foram enviados
+    if (res.headersSent) {
+      console.error('❌ CRÍTICO: Headers já foram enviados! Stack:', new Error().stack);
+      return;
+    }
+    
     // Debug: Verificar se há caracteres especiais na resposta
     const responseString = JSON.stringify(responseData);
     console.log('🔍 Debug: Resposta JSON:', responseString.substring(0, 200) + '...');
     console.log('🔍 Debug: Primeiros caracteres:', responseString.substring(0, 10).split('').map(c => c.charCodeAt(0)));
+    console.log('🔍 Debug: First byte hex:', Buffer.from(responseString)[0].toString(16));
     
     res.json(responseData);
 
