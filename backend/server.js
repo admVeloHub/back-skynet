@@ -1,6 +1,6 @@
 /**
  * VeloHub V3 - Backend Server
- * VERSION: v1.2.0 | DATE: 2025-01-27 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.2.1 | DATE: 2025-01-27 | AUTHOR: VeloHub Development Team
  */
 
 const express = require('express');
@@ -947,7 +947,17 @@ app.post('/api/chatbot/ai-response', async (req, res) => {
   try {
     const { question, botPerguntaResponse, articleContent, userId, sessionId } = req.body;
 
+    // Debug: Log dos dados recebidos
+    console.log('🔍 AI Response Debug - Dados recebidos:', {
+      question: question ? 'presente' : 'ausente',
+      botPerguntaResponse: botPerguntaResponse ? 'presente' : 'ausente',
+      articleContent: articleContent ? 'presente' : 'ausente',
+      userId: userId || 'não fornecido',
+      sessionId: sessionId || 'não fornecido'
+    });
+
     if (!question || !botPerguntaResponse) {
+      console.log('❌ AI Response: Validação falhou - question:', !!question, 'botPerguntaResponse:', !!botPerguntaResponse);
       return res.status(400).json({
         success: false,
         error: 'Pergunta e resposta do Bot_perguntas são obrigatórias'
