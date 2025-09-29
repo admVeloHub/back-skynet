@@ -7,6 +7,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Home, FileText, MessageSquare, LifeBuoy, Book, Search, User, Sun, Moon, FilePlus, Bot, GraduationCap, Map, Puzzle, PlusSquare, Send, ThumbsUp, ThumbsDown, BookOpen } from 'lucide-react';
 import { mainAPI, veloNewsAPI, articlesAPI, faqAPI } from './services/api';
 import { checkAuthenticationState, updateUserInfo } from './services/auth';
+import { API_BASE_URL } from './config/api-config';
 import LoginPage from './components/LoginPage';
 import Chatbot from './components/Chatbot';
 import SupportModal from './components/SupportModal';
@@ -515,7 +516,7 @@ const HomePage = ({ setCriticalNews }) => {
                 
                 // ✅ Handshake das IAs do VeloBot (refresh periódico)
                 try {
-                    const handshakeResponse = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:3001'}/api/chatbot/health-check`);
+                    const handshakeResponse = await fetch(`${API_BASE_URL}/chatbot/health-check`);
                     if (handshakeResponse.ok) {
                         const handshakeData = await handshakeResponse.json();
                         console.log('🔄 VeloBot: Handshake periódico executado - IA primária:', handshakeData.primaryAI);
