@@ -20,6 +20,88 @@ const Chatbot = ({ prompt }) => {
     const [feedbackForMessage, setFeedbackForMessage] = useState(null);
     const [feedbackComment, setFeedbackComment] = useState('');
     const [selectedArticle, setSelectedArticle] = useState(null);
+    
+    // Estados dos módulos - controlados pelo Console VeloHub
+    const [moduleStatus, setModuleStatus] = useState({
+        'credito-trabalhador': 'on',
+        'credito-pessoal': 'on', 
+        'antecipacao': 'revisao',
+        'pagamento-antecipado': 'off',
+        'modulo-irpf': 'on'
+    });
+
+    // Função para buscar status dos módulos do Console VeloHub
+    const fetchModuleStatus = async () => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/module-status`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            });
+            
+            if (response.ok) {
+                const statusData = await response.json();
+                setModuleStatus(statusData);
+            }
+        } catch (error) {
+            console.log('Erro ao buscar status dos módulos:', error);
+        }
+    };
+
+    // Função para renderizar status do módulo
+    const renderModuleStatus = (moduleKey, moduleName, title) => {
+        const status = moduleStatus[moduleKey];
+        let statusConfig = {};
+        
+        switch (status) {
+            case 'on':
+                statusConfig = {
+                    color: 'bg-green-500',
+                    animate: 'animate-pulse',
+                    title: 'Serviço Online - Funcionando normalmente'
+                };
+                break;
+            case 'revisao':
+                statusConfig = {
+                    color: 'bg-yellow-500',
+                    animate: '',
+                    title: 'Em Revisão - Serviço temporariamente indisponível'
+                };
+                break;
+            case 'off':
+                statusConfig = {
+                    color: 'bg-red-500',
+                    animate: '',
+                    title: 'Serviço Offline - Indisponível no momento'
+                };
+                break;
+            default:
+                statusConfig = {
+                    color: 'bg-gray-500',
+                    animate: '',
+                    title: 'Status Desconhecido'
+                };
+        }
+        
+        return (
+            <div className="flex items-center gap-1 text-sm p-1 rounded hover:bg-gray-50 transition-colors" title={statusConfig.title}>
+                <span className={`h-2 w-2 ${statusConfig.color} rounded-full ${statusConfig.animate}`}></span>
+                <span style={{color: 'var(--cor-texto-principal)'}}>{moduleName}</span>
+            </div>
+        );
+    };
+
+    // Refresh automático do status
+    useEffect(() => {
+        // Buscar status inicial
+        fetchModuleStatus();
+        
+        // Configurar refresh automático
+        const interval = setInterval(fetchModuleStatus, 3 * 60 * 1000); // 3 minutos (consistente com o sistema)
+        
+        return () => clearInterval(interval);
+    }, []);
 
     // Obter userId do SSO
     useEffect(() => {
@@ -480,16 +562,36 @@ const Chatbot = ({ prompt }) => {
     return (
         <>
             <div className="flex flex-col h-[80vh] velohub-modal" style={{borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)', border: '1px solid var(--cor-borda)'}}>
-                {/* Header - MANTENDO EXATAMENTE IGUAL */}
-                <div className="flex-shrink-0 flex items-center gap-4 p-4" style={{borderBottom: '1px solid var(--cor-borda)'}}>
-                    <img src="https://github.com/VeloProcess/PDP-Portal-de-Processos-/blob/main/unnamed%20(2).png?raw=true" alt="Logo" className="w-10 h-10 rounded-full" />
-                    <div>
-                        <h2 className="text-lg font-semibold" style={{color: 'var(--blue-dark)'}}>Veloprocess</h2>
-                        <div className="flex items-center gap-2 text-xs" style={{color: 'var(--cor-texto-secundario)'}}>
-                            <span className="flex items-center gap-1"><span className="h-2 w-2 bg-green-500 rounded-full"></span>Online</span>
-                            <span>v.4.0.1</span>
-                        </div>
-                    </div>
+        {/* Header - Sistema de Status de Serviços */}
+        <div className="flex-shrink-0 p-3" style={{borderBottom: '1px solid var(--cor-borda)'}}>
+            {/* Grid de Status dos Serviços - Layout 4x2 */}
+            <div className="grid grid-cols-4 gap-1">
+                {/* Status do APP - Primeira célula */}
+                <div className="flex items-center text-xs p-1">
+                    <h2 className="text-2xl font-semibold" style={{color: 'var(--blue-dark)', fontFamily: 'Poppins, sans-serif'}}>Status do APP</h2>
+                </div>
+                
+                {/* Crédito Trabalhador */}
+                {renderModuleStatus('credito-trabalhador', 'Crédito Trabalhador')}
+                
+                {/* Crédito Pessoal */}
+                {renderModuleStatus('credito-pessoal', 'Crédito Pessoal')}
+                
+                {/* Antecipação */}
+                {renderModuleStatus('antecipacao', 'Antecipação')}
+                
+                {/* Espaço vazio para alinhamento */}
+                <div></div>
+                
+                {/* Pagamento Antecipado */}
+                {renderModuleStatus('pagamento-antecipado', 'Pagamento Antecipado')}
+                
+                {/* Módulo IRPF */}
+                {renderModuleStatus('modulo-irpf', 'Módulo IRPF')}
+                
+                {/* Espaço reservado para 6º módulo */}
+                <div></div>
+            </div>
                 </div>
 
                 {/* Chat Box - MANTENDO EXATAMENTE IGUAL */}
@@ -667,7 +769,7 @@ const FeedbackModal = ({ isOpen, onClose, onSubmit, comment, setComment }) => {
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="p-6 rounded-lg shadow-xl max-w-md w-full mx-4" style={{backgroundColor: 'var(--cor-container)', border: '1px solid var(--cor-borda)'}}>
-                <h3 className="text-lg font-semibold mb-4" style={{color: 'var(--blue-dark)'}}>Feedback</h3>
+                <h3 className="text-2x1 font-semibold mb-4" style={{color: 'var(--blue-dark)'}}>Feedback</h3>
                 <p className="mb-4" style={{color: 'var(--cor-texto-secundario)'}}>Como podemos melhorar nossa resposta?</p>
                 <textarea
                     value={comment}
@@ -703,3 +805,5 @@ const FeedbackModal = ({ isOpen, onClose, onSubmit, comment, setComment }) => {
 };
 
 export default Chatbot;
+
+

@@ -1494,3 +1494,103 @@ process.on('unhandledRejection', (reason, promise) => {
   console.error('❌ Promise rejeitada não tratada:', reason);
   // Não encerrar o processo, apenas logar o erro
 });
+
+// ========================================
+// SISTEMA DE CONTROLE DE STATUS DOS MÓDULOS
+// ========================================
+
+// Armazenamento em memória do status dos módulos (em produção, usar Redis ou banco)
+let moduleStatus = {
+  'credito-trabalhador': 'on',
+  'credito-pessoal': 'on',
+  'antecipacao': 'revisao',
+  'pagamento-antecipado': 'off',
+  'modulo-irpf': 'on'
+};
+
+// Endpoint para buscar status dos módulos (GET)
+app.get('/api/module-status', (req, res) => {
+  try {
+    console.log('📊 Status dos módulos solicitado');
+    res.json(moduleStatus);
+  } catch (error) {
+    console.error('❌ Erro ao buscar status dos módulos:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+// Endpoint para atualizar status dos módulos (POST) - Console VeloHub
+app.post('/api/module-status', (req, res) => {
+  try {
+    const { moduleKey, status } = req.body;
+    
+    // Validar entrada
+    if (!moduleKey || !status) {
+      return res.status(400).json({ error: 'moduleKey e status são obrigatórios' });
+    }
+    
+    if (!['on', 'off', 'revisao'].includes(status)) {
+      return res.status(400).json({ error: 'Status deve ser: on, off ou revisao' });
+    }
+    
+    if (!moduleStatus.hasOwnProperty(moduleKey)) {
+      return res.status(400).json({ error: 'Módulo não encontrado' });
+    }
+    
+    // Atualizar status
+    const oldStatus = moduleStatus[moduleKey];
+    moduleStatus[moduleKey] = status;
+    
+    console.log(`🔄 Status do módulo ${moduleKey} alterado: ${oldStatus} → ${status}`);
+    
+    res.json({ 
+      success: true, 
+      message: `Status do módulo ${moduleKey} atualizado para ${status}`,
+      moduleStatus 
+    });
+    
+  } catch (error) {
+    console.error('❌ Erro ao atualizar status dos módulos:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+// Endpoint para atualizar múltiplos módulos (PUT) - Console VeloHub
+app.put('/api/module-status', (req, res) => {
+  try {
+    const newStatus = req.body;
+    
+    // Validar se é um objeto
+    if (typeof newStatus !== 'object' || Array.isArray(newStatus)) {
+      return res.status(400).json({ error: 'Body deve ser um objeto com os status dos módulos' });
+    }
+    
+    // Validar cada status
+    for (const [moduleKey, status] of Object.entries(newStatus)) {
+      if (!moduleStatus.hasOwnProperty(moduleKey)) {
+        return res.status(400).json({ error: `Módulo ${moduleKey} não encontrado` });
+      }
+      
+      if (!['on', 'off', 'revisao'].includes(status)) {
+        return res.status(400).json({ error: `Status inválido para ${moduleKey}: ${status}` });
+      }
+    }
+    
+    // Atualizar todos os status
+    const oldStatus = { ...moduleStatus };
+    moduleStatus = { ...moduleStatus, ...newStatus };
+    
+    console.log('🔄 Status dos módulos atualizados em lote:', newStatus);
+    
+    res.json({ 
+      success: true, 
+      message: 'Status dos módulos atualizados com sucesso',
+      moduleStatus,
+      changes: newStatus
+    });
+    
+  } catch (error) {
+    console.error('❌ Erro ao atualizar status dos módulos em lote:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});

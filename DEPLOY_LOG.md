@@ -3,6 +3,21 @@
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
 
+### **GitHub Push - Implementação Completa do Novo Sistema de Busca VeloBot**
+- **Data/Hora**: 2025-09-29 15:30:00
+- **Tipo**: GitHub Push
+- **Versão**: v3.0.0
+- **Commit**: d1fdf6c
+- **Arquivos Modificados**:
+  - `backend/server.js` (v1.5.0)
+  - `backend/services/chatbot/aiService.js` (v2.5.0)
+  - `backend/services/chatbot/searchService.js` (v2.3.0)
+  - `src/App_v2-1.js`
+  - `src/components/Chatbot.js` (v1.3.0)
+- **Arquivos Adicionados**:
+  - `DIAGRAMA_FUNCIONAMENTO_BUSCA.txt`
+- **Descrição**: Implementação completa do novo sistema de busca VeloBot com lógica dinâmica de IAs, clarification direto, handshake periódico, cache inteligente, filtro MongoDB e logs paralelos. Sistema totalmente otimizado e robusto.
+
 ### **GitHub Push - Melhorias Significativas no Sistema de Busca do Chatbot**
 - **Data/Hora**: 2025-01-27 22:00:00
 - **Tipo**: GitHub Push

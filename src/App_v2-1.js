@@ -385,7 +385,7 @@ const PontoWidget = () => {
       setLoading(true);
       setMessage('');
       
-      const response = await fetch(`/api/ponto/${tipo}`, {
+      const response = await fetch(`${API_BASE_URL}/ponto/${tipo}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -410,7 +410,7 @@ const PontoWidget = () => {
 
   const fetchStatus = async () => {
     try {
-      const response = await fetch('/api/ponto/status');
+      const response = await fetch(`${API_BASE_URL}/ponto/status`);
       const data = await response.json();
       
       if (data.success) {
@@ -1596,7 +1596,7 @@ const ProcessosPage = () => {
                 setLoading(true);
                 
                 // Usar novo endpoint do backend para Top 10 FAQ
-                const response = await fetch('/api/faq/top10');
+                const response = await fetch(`${API_BASE_URL}/faq/top10`);
                 const result = await response.json();
                 
                 console.log('Top 10 FAQ carregado:', result);

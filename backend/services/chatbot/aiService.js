@@ -697,7 +697,7 @@ ${sessionHistory.length > 0 ?
       console.error('❌ AI Service: OpenAI configurado:', this.isOpenAIConfigured());
       console.error('❌ AI Service: Gemini configurado:', this.isGeminiConfigured());
     }
-    
+
     return results;
   }
 }
