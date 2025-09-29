@@ -1,6 +1,6 @@
 /**
  * VeloHub V3 - Backend Server
- * VERSION: v1.3.0 | DATE: 2025-01-27 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.5.0 | DATE: 2025-09-29 | AUTHOR: VeloHub Development Team
  */
 
 const express = require('express');
@@ -573,7 +573,248 @@ app.get('/api/ponto/status', async (req, res) => {
 // Iniciar limpeza automática de sessões
 sessionService.startAutoCleanup();
 
+/**
+ * Filtra perguntas do MongoDB por keywords/sinônimos
+ * @param {string} question - Pergunta do usuário
+ * @param {Array} botPerguntasData - Dados do MongoDB
+ * @returns {Array} Perguntas filtradas
+ */
+function filterByKeywords(question, botPerguntasData) {
+  const questionWords = question.toLowerCase().split(/\s+/);
+  const filtered = [];
+  
+  for (const item of botPerguntasData) {
+    const palavrasChave = (item["Palavras-chave"] || '').toLowerCase();
+    const sinonimos = (item.Sinonimos || '').toLowerCase();
+    const pergunta = (item.Pergunta || '').toLowerCase();
+    
+    // Combinar todos os campos de busca
+    const searchText = `${palavrasChave} ${sinonimos} ${pergunta}`;
+    
+    // Verificar se alguma palavra da pergunta está presente
+    const hasMatch = questionWords.some(word => {
+      if (word.length < 2) return false; // Ignorar palavras muito curtas
+      return searchText.includes(word);
+    });
+    
+    if (hasMatch) {
+      filtered.push(item);
+    }
+  }
+  
+  // Fallback: se filtro muito restritivo, retornar primeiras 50
+  if (filtered.length === 0) {
+    console.log('⚠️ Filtro muito restritivo, usando fallback (primeiras 50 perguntas)');
+    return botPerguntasData.slice(0, 50);
+  }
+  
+  // Limitar a 100 perguntas para não sobrecarregar a IA
+  return filtered.slice(0, 100);
+}
+
 // ===== API DO CHATBOT INTELIGENTE =====
+
+/**
+ * Inicialização do VeloBot - Validação + Sessão + Handshake IA
+ * GET /api/chatbot/init
+ */
+app.get('/api/chatbot/init', async (req, res) => {
+  try {
+    const { userId, email } = req.query;
+    
+    // Validação básica
+    if (!userId || !email) {
+      return res.status(400).json({
+        success: false,
+        error: 'userId e email são obrigatórios'
+      });
+    }
+    
+    const cleanUserId = userId.trim();
+    const userEmail = email.trim();
+    
+    console.log(`🚀 VeloBot Init: Inicializando para ${cleanUserId} (${userEmail})`);
+    
+    // 1. VALIDAÇÃO E SESSÃO
+    const session = sessionService.getOrCreateSession(cleanUserId, null);
+    console.log(`✅ VeloBot Init: Sessão criada/obtida: ${session.id}`);
+    
+    // 2. HANDSHAKE DAS IAs
+    const aiStatus = await aiService.testConnection();
+    let primaryAI = null;
+    let fallbackAI = null;
+    
+    if (aiStatus.openai.available) {
+      primaryAI = 'OpenAI';
+      fallbackAI = aiStatus.gemini.available ? 'Gemini' : null;
+    } else if (aiStatus.gemini.available) {
+      primaryAI = 'Gemini';
+      fallbackAI = null;
+    }
+    
+    console.log(`✅ VeloBot Init: IA primária: ${primaryAI}, Fallback: ${fallbackAI}`);
+    
+    // 3. RESPOSTA DE INICIALIZAÇÃO
+    const response = {
+      success: true,
+      sessionId: session.id,
+      userId: cleanUserId,
+      email: userEmail,
+      aiStatus: {
+        primaryAI: primaryAI,
+        fallbackAI: fallbackAI,
+        anyAvailable: aiStatus.openai.available || aiStatus.gemini.available
+      },
+      timestamp: new Date().toISOString()
+    };
+    
+    console.log(`✅ VeloBot Init: Inicialização concluída para ${cleanUserId}`);
+    res.json(response);
+    
+  } catch (error) {
+    console.error('❌ VeloBot Init Error:', error.message);
+    res.status(500).json({
+      success: false,
+      error: 'Erro na inicialização do VeloBot',
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+/**
+ * Clarification Direto - Resposta sem re-análise da IA
+ * POST /api/chatbot/clarification
+ */
+app.post('/api/chatbot/clarification', async (req, res) => {
+  try {
+    const { question, userId, sessionId } = req.body;
+    
+    if (!question || !userId) {
+      return res.status(400).json({
+        success: false,
+        error: 'question e userId são obrigatórios'
+      });
+    }
+    
+    const cleanUserId = userId.trim();
+    const cleanSessionId = sessionId ? sessionId.trim() : null;
+    const cleanQuestion = question.trim();
+    
+    console.log(`🔍 Clarification Direto: Buscando resposta para "${cleanQuestion}"`);
+    
+    // 1. BUSCAR RESPOSTA DIRETA NO MONGODB
+    const botPerguntasData = await getBotPerguntasData();
+    const directMatch = botPerguntasData.find(item => 
+      item.Pergunta && item.Pergunta.toLowerCase().includes(cleanQuestion.toLowerCase())
+    );
+    
+    if (directMatch) {
+      console.log(`✅ Clarification Direto: Resposta encontrada no MongoDB`);
+      
+      // 2. LOG DA ATIVIDADE
+      await userActivityLogger.logQuestion(cleanUserId, cleanQuestion, cleanSessionId);
+      
+      // 3. RESPOSTA DIRETA
+      const response = {
+        success: true,
+        response: directMatch.Resposta || 'Resposta não encontrada',
+        source: 'Bot_perguntas',
+        sourceId: directMatch._id,
+        sourceRow: directMatch.Pergunta,
+        timestamp: new Date().toISOString(),
+        sessionId: cleanSessionId
+      };
+      
+      console.log(`✅ Clarification Direto: Resposta enviada para ${cleanUserId}`);
+      return res.json(response);
+    }
+    
+    // 4. FALLBACK: BUSCA TRADICIONAL
+    console.log(`⚠️ Clarification Direto: Nenhuma correspondência direta, usando busca tradicional`);
+    
+    const searchResults = await searchService.performHybridSearch(cleanQuestion, botPerguntasData, []);
+    
+    if (searchResults.botPergunta) {
+      const response = {
+        success: true,
+        response: searchResults.botPergunta.Resposta || 'Resposta não encontrada',
+        source: 'Bot_perguntas',
+        sourceId: searchResults.botPergunta._id,
+        sourceRow: searchResults.botPergunta.Pergunta,
+        timestamp: new Date().toISOString(),
+        sessionId: cleanSessionId
+      };
+      
+      console.log(`✅ Clarification Direto: Resposta via busca tradicional para ${cleanUserId}`);
+      return res.json(response);
+    }
+    
+    // 5. RESPOSTA PADRÃO
+    const response = {
+      success: true,
+      response: 'Desculpe, não consegui encontrar uma resposta específica para essa pergunta.',
+      source: 'fallback',
+      timestamp: new Date().toISOString(),
+      sessionId: cleanSessionId
+    };
+    
+    console.log(`⚠️ Clarification Direto: Resposta padrão para ${cleanUserId}`);
+    return res.json(response);
+    
+  } catch (error) {
+    console.error('❌ Clarification Direto Error:', error.message);
+    res.status(500).json({
+      success: false,
+      error: 'Erro no clarification direto',
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+/**
+ * Health Check das IAs - Determina IA primária
+ * GET /api/chatbot/health-check
+ */
+app.get('/api/chatbot/health-check', async (req, res) => {
+  try {
+    console.log('🔍 Health Check: Testando disponibilidade das IAs...');
+    
+    const aiStatus = await aiService.testConnection();
+    
+    // Determinar IA primária baseada na disponibilidade
+    let primaryAI = null;
+    let fallbackAI = null;
+    
+    if (aiStatus.openai.available) {
+      primaryAI = 'OpenAI';
+      fallbackAI = aiStatus.gemini.available ? 'Gemini' : null;
+    } else if (aiStatus.gemini.available) {
+      primaryAI = 'Gemini';
+      fallbackAI = null;
+    }
+    
+    const response = {
+      success: true,
+      timestamp: new Date().toISOString(),
+      aiStatus: aiStatus,
+      primaryAI: primaryAI,
+      fallbackAI: fallbackAI,
+      anyAvailable: aiStatus.openai.available || aiStatus.gemini.available
+    };
+    
+    console.log(`✅ Health Check: IA primária: ${primaryAI}, Fallback: ${fallbackAI}`);
+    
+    res.json(response);
+    
+  } catch (error) {
+    console.error('❌ Health Check Error:', error.message);
+    res.status(500).json({
+      success: false,
+      error: 'Erro ao verificar status das IAs',
+      timestamp: new Date().toISOString()
+    });
+  }
+});
 
 // API de Chat Inteligente
 app.post('/api/chatbot/ask', async (req, res) => {
@@ -595,7 +836,7 @@ app.post('/api/chatbot/ask', async (req, res) => {
 
     console.log(`🤖 Chat V2: Nova pergunta de ${cleanUserId}: "${cleanQuestion}"`);
 
-    // Obter ou criar sessão
+    // Obter sessão (deve ter sido criada na inicialização)
     const session = sessionService.getOrCreateSession(cleanUserId, cleanSessionId);
     
     // Adicionar pergunta à sessão
@@ -605,8 +846,15 @@ app.post('/api/chatbot/ask', async (req, res) => {
       email: userEmail
     });
 
-    // Log da atividade
+    // Log da atividade (MongoDB + Google Sheets)
     await userActivityLogger.logQuestion(cleanUserId, cleanQuestion, session.id);
+    
+    // Log paralelo para Google Sheets (não bloqueia resposta)
+    if (logsService.isConfigured()) {
+      logsService.logAIResponse(userEmail, cleanQuestion, 'question_logged').catch(error => {
+        console.warn('⚠️ Log Google Sheets falhou (não crítico):', error.message);
+      });
+    }
 
     // Buscar dados do MongoDB
     const client = await connectToMongo();
@@ -622,15 +870,19 @@ app.post('/api/chatbot/ask', async (req, res) => {
 
     console.log(`📋 Chat V2: ${botPerguntasData.length} perguntas do Bot_perguntas e ${articlesData.length} artigos carregados`);
 
+    // FILTRO MONGODB por keywords/sinônimos
+    const filteredBotPerguntas = filterByKeywords(cleanQuestion, botPerguntasData);
+    console.log(`🔍 Chat V2: Filtro aplicado - ${filteredBotPerguntas.length} perguntas relevantes (de ${botPerguntasData.length})`);
+
     // Análise inteligente com IA (NOVO SISTEMA)
     let aiAnalysis = null;
     let searchResults = null;
     
     if (aiService.isConfigured()) {
       console.log(`🤖 Chat V2: Usando análise inteligente da IA para: "${cleanQuestion}"`);
-      console.log(`🔍 Chat V2: Total de perguntas na base: ${botPerguntasData.length}`);
+      console.log(`🔍 Chat V2: Perguntas localizadas na base: ${botPerguntasData.length}, Filtradas: ${filteredBotPerguntas.length}`);
       console.log(`🔍 Chat V2: IA configurada - Gemini: ${aiService.isGeminiConfigured()}, OpenAI: ${aiService.isOpenAIConfigured()}`);
-      aiAnalysis = await aiService.analyzeQuestionWithAI(cleanQuestion, botPerguntasData);
+      aiAnalysis = await aiService.analyzeQuestionWithAI(cleanQuestion, filteredBotPerguntas);
       console.log(`🔍 Chat V2: Resultado da análise IA:`, JSON.stringify(aiAnalysis, null, 2));
       
       if (aiAnalysis.error) {
@@ -721,12 +973,23 @@ app.post('/api/chatbot/ask', async (req, res) => {
 
     if (aiService.isConfigured()) {
       try {
+        // Determinar IA primária baseada na disponibilidade
+        let primaryAI = 'OpenAI'; // Padrão
+        if (aiService.isOpenAIConfigured()) {
+          primaryAI = 'OpenAI';
+        } else if (aiService.isGeminiConfigured()) {
+          primaryAI = 'Gemini';
+        }
+        
         const aiResult = await aiService.generateResponse(
           cleanQuestion,
           context,
           sessionHistory,
           cleanUserId,
-          userEmail
+          userEmail,
+          null, // searchResults
+          'conversational', // formatType
+          primaryAI
         );
         
         response = aiResult.response;
@@ -1038,6 +1301,14 @@ app.post('/api/chatbot/ai-response', async (req, res) => {
     const session = cleanSessionId ? sessionService.getOrCreateSession(cleanUserId, cleanSessionId) : null;
     const sessionHistory = session ? sessionService.getSessionHistory(session.id) : [];
 
+    // Determinar IA primária baseada na disponibilidade
+    let primaryAI = 'OpenAI'; // Padrão
+    if (aiService.isOpenAIConfigured()) {
+      primaryAI = 'OpenAI';
+    } else if (aiService.isGeminiConfigured()) {
+      primaryAI = 'Gemini';
+    }
+    
     // Gerar resposta conversacional da IA
     const aiResult = await aiService.generateResponse(
       question,
@@ -1046,7 +1317,8 @@ app.post('/api/chatbot/ai-response', async (req, res) => {
       cleanUserId,
       cleanUserId,
       null, // searchResults
-      formatType || 'conversational'
+      formatType || 'conversational',
+      primaryAI
     );
 
     if (!aiResult.success) {

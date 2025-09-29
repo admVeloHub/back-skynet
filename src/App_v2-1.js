@@ -513,6 +513,17 @@ const HomePage = ({ setCriticalNews }) => {
                 setLoading(true);
                 const velonewsResponse = await veloNewsAPI.getAll();
                 
+                // ✅ Handshake das IAs do VeloBot (refresh periódico)
+                try {
+                    const handshakeResponse = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:3001'}/api/chatbot/health-check`);
+                    if (handshakeResponse.ok) {
+                        const handshakeData = await handshakeResponse.json();
+                        console.log('🔄 VeloBot: Handshake periódico executado - IA primária:', handshakeData.primaryAI);
+                    }
+                } catch (handshakeError) {
+                    console.warn('⚠️ VeloBot: Handshake periódico falhou (não crítico):', handshakeError.message);
+                }
+                
                 // ✅ Usar todos os velonews recebidos da API
                 const sortedVeloNews = [...velonewsResponse.data].sort((a, b) => {
                     const da = new Date(a.createdAt || a.updatedAt || 0) || 0;

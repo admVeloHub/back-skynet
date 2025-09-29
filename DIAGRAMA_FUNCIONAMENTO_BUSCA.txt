@@ -1,0 +1,350 @@
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                           VELOBOT - SISTEMA DE BUSCA                           │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────┐
+│   USUÁRIO       │
+│   FAZ PERGUNTA  │
+└─────────┬───────┘
+          │
+          ▼
+┌─────────────────┐
+│  VALIDAÇÃO      │
+│  + SESSÃO       │
+└─────────┬───────┘
+          │
+          ▼
+┌─────────────────┐
+│  MONGODB        │
+│  Carrega 297    │
+│  perguntas +    │
+│  44 artigos     │
+└─────────┬───────┘
+          │
+          ▼
+┌─────────────────┐
+│  IA CONFIGURADA?│
+│  Gemini + OpenAI│
+└─────────┬───────┘
+          │ SIM
+          ▼
+┌─────────────────┐
+│  ANÁLISE IA     │
+│  analyzeQuestion│
+│  WithAI()       │
+└─────────┬───────┘
+          │
+          ▼
+┌─────────────────┐
+│  GEMINI         │
+│  Analisa vs     │
+│  297 perguntas  │
+└─────────┬───────┘
+          │
+          ▼
+┌─────────────────┐
+│  GEMINI OK?     │
+└─────────┬───────┘
+          │ NÃO (503)
+          ▼
+┌─────────────────┐
+│  OPENAI         │
+│  FALLBACK       │
+│  Analisa vs     │
+│  297 perguntas  │
+└─────────┬───────┘
+          │
+          ▼
+┌─────────────────┐
+│  OPENAI OK?     │
+└─────────┬───────┘
+          │ NÃO
+          ▼
+┌─────────────────┐
+│  BUSCA          │
+│  TRADICIONAL    │
+│  hybridSearch() │
+└─────────┬───────┘
+          │
+          ▼
+┌─────────────────┐
+│  RESULTADO      │
+│  - 1 opção:     │
+│    Resposta     │
+│  - Múltiplas:   │
+│    Esclarec.    │
+│  - Nenhuma:     │
+│    Erro         │
+└─────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                              PROBLEMA ATUAL                                    │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+❌ FALTA: Fallback OpenAI na função analyzeQuestionWithAI()
+❌ RESULTADO: Gemini falha → Busca tradicional → Erro
+✅ DEVERIA: Gemini falha → OpenAI → Se falhar → Busca tradicional
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│  Nova estrutura para nálise de viabilidade e confiabilidade                     │
+└─────────────────────────────────────────────────────────────────────────────────┘
+quero que vc leia atentamente a proposta estrutural abaixo e entregue uma analise de viabiliade e confiabilidade da proposta, incluindo um relatorio de fluxo completo e possíveis pontos de quebra do processo.
+USUÁRIO ACESSA A ABA VELOBOT
+          │
+          ▼
+┌─────────────────┐
+│  VALIDAÇÃO + SESSÃO + HANDSHAKE IA      │
+└─────────┬───────┘
+          │
+          ▼
+┌─────────────────┐
+│   USUÁRIO       │
+│   FAZ PERGUNTA  │------>paralelo envio de log de pergunta (ja deveria estar funcional)(envio google sheets)
+└─────────┬───────┘
+┌─────────────────┐
+│  MONGODB        │
+│  Carrega perguntas
+E ARTIGOS FILTRADOS
+POR PALAVRA CHAVE E SINONIMOS
+CONFORME PRESENTE NO SCHEMA D REGISTRO     │
+└─────────┬───────┘
+          │
+          ▼
+┌─────────────────┐
+│  CHAMADA DE IA  │
+│      OPENAI     |
+└─────────┬───────┘
+          │ SE FALHA -------> |CHAMADA DE IA GEMINI|  SE FALHA ---> BUSCA TRADICIONAL
+          ▼
+┌─────────────────┐
+│  ANÁLISE IA     │
+│  analyzeQuestion│
+│  WithAI()       │
+└─────────┬───────┘
+          │
+          ▼
+┌─────────────────┐
+│  IA CHAMADA              │
+│  Analisa vs              │
+│  X perguntas SELECIONADAS│
+└─────────┬───────┘
+          │
+          ▼
+
+┌─────────────────┐
+│  BUSCA          │
+│  TRADICIONAL    │
+│  hybridSearch() │
+└─────────┬───────┘
+          │
+          ▼
+┌─────────────────┐
+│  RESULTADO      │
+│  - 1 opção:     │
+│    Resposta     │
+│  - Múltiplas:   │
+│    Esclarec.------------>USUÁRIO ESCOLHE ITEM DESEJADO NO CLARIFICATION> RESULTADO DIRETO SEM CHAMADA DE IA   
+│  - Nenhuma:     │
+│    Erro         │
+└─────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                              PROPOSTA ATUAL                                    │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+INVERSAO DA ORDEM DE CHAMADA DAS IAs = Usa OpenAI como primeira opção
+Chamada direta da resposta na IA sem teste de disponibilidade: objetivo=reduzir tempo de espera pela resposta. Viável? Funcional? apresenta risco? o handshake das IAs 
+poderia acontecer logo ao acessar a aba pra determinar a qual será enviada no momento do uso e acelerar o funionamento? 
+✅ DEVERIA: IA1 → se falhar → IA2 → Se falhar → Busca tradicional
+Clarification Needed= a primeira analise da IA que gerou a clarification já selecionou as repostas relevantes do DB. Clicar no item desejado deve abrirdiretamente a resposta
+visando agilidade de obtenção. Não é necessário repetir a avaliação pela IA. 
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                    ANÁLISE DE VIABILIDADE E CONFIABILIDADE                     │
+│                           NOVA PROPOSTA ESTRUTURAL                             │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                                VIABILIDADE                                     │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+✅ VIÁVEL - Pontos Positivos:
+• Filtro prévio por palavras-chave reduz carga da IA
+• Clarification direto sem re-análise (agilidade)
+• Handshake prévio das IAs (otimização)
+• Inversão OpenAI→Gemini (OpenAI mais estável)
+
+⚠️ VIABILIDADE CONDICIONAL:
+• Requer implementação de filtro MongoDB por keywords
+• Necessita cache de status das IAs
+• Precisa modificar fluxo de clarification
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                               CONFIABILIDADE                                   │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+✅ ALTA CONFIABILIDADE:
+• Redundância mantida (IA1→IA2→Busca tradicional)
+• Clarification direto elimina pontos de falha
+• Filtro prévio reduz erros de análise
+
+⚠️ RISCOS IDENTIFICADOS:
+• Filtro muito restritivo pode excluir resultados relevantes
+• Cache de status pode ficar desatualizado
+• Dependência maior do MongoDB para filtros
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                              FLUXO COMPLETO                                    │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+1. USUÁRIO ACESSA VELOBOT
+   ↓
+2. HANDSHAKE IAs (determina IA primária)
+   ↓
+3. USUÁRIO FAZ PERGUNTA
+   ↓
+4. MONGODB FILTRA por keywords/sinônimos
+   ↓
+5. IA PRIMÁRIA analisa X perguntas filtradas
+   ↓
+6a. SUCESSO → Resultado direto
+6b. FALHA → IA SECUNDÁRIA
+6c. FALHA → Busca tradicional
+   ↓
+7. RESULTADO:
+   - 1 opção: Resposta direta
+   - Múltiplas: Clarification (sem re-análise)
+   - Nenhuma: Erro
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                            PONTOS DE QUEBRA                                     │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+🔴 CRÍTICOS:
+• MongoDB indisponível → Sistema para
+• Ambas IAs falham → Busca tradicional (pode falhar)
+• Filtro muito restritivo → Nenhum resultado
+
+🟡 MÉDIOS:
+• Cache de status desatualizado → IA errada
+• Keywords mal configuradas → Filtro ineficaz
+• Clarification sem dados → Erro
+
+🟢 BAIXOS:
+• Handshake lento → Delay inicial
+• Filtro muito amplo → Performance reduzida
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                              RECOMENDAÇÕES                                     │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+✅ IMPLEMENTAR:
+1. Filtro MongoDB por keywords/sinônimos
+2. Cache de status das IAs (TTL 5min)
+3. Clarification direto sem re-análise
+4. Inversão OpenAI→Gemini
+
+⚠️ ATENÇÃO:
+1. Configurar filtro com fallback amplo
+2. Monitorar performance do filtro
+3. Implementar logs detalhados
+4. Testar cenários de falha
+
+🎯 RESULTADO ESPERADO:
+• Redução de 60-80% no tempo de resposta
+• Maior confiabilidade (menos pontos de falha)
+• Melhor experiência do usuário
+
+📝 CHECKLIST DE TAREFAS (ORDEM DE EXECUÇÃO):
+
+1. CORREÇÃO SCHEMA MONGODB ✅
+[x] Corrigir campos do schema MongoDB (Pergunta, Resposta, Palavras-chave, Sinonimos)
+
+2. LOG PARALELO GOOGLE SHEETS ✅
+[x] Implementar log paralelo para Google Sheets (não bloqueia resposta)
+
+3. VALIDAÇÃO E SESSÃO INICIAL ✅
+[x] Mover validação e sessão para acesso inicial do VeloBot (não na pergunta)
+[x] Integrar handshake das IAs no acesso inicial (VALIDAÇÃO + SESSÃO + HANDSHAKE IA)
+
+4. HANDSHAKE DAS IAs ✅ (INICIALIZAÇÃO + REFRESH PERIÓDICO)
+[x] Criar endpoint /api/chatbot/health-check
+[x] Testar disponibilidade OpenAI e Gemini
+[x] Determinar IA primária (OpenAI preferencial)
+[x] Cache de status (TTL 5min)
+[x] Log de handshake
+
+5. FILTRO MONGODB ✅
+[x] Implementar filtro por keywords/sinônimos
+[x] Query otimizada com fallback amplo
+[x] Reduzir de 297 para X perguntas relevantes
+[x] Log de filtros aplicados
+
+6. INVERSÃO ORDEM IAs ✅ (LÓGICA DINÂMICA)
+[x] OpenAI como primária na análise
+[x] Gemini como fallback
+[x] Manter redundância completa
+[x] Testar cenários de falha
+
+7. CLARIFICATION DIRETO ✅
+[x] Armazenar dados da análise inicial
+[x] Resposta direta sem re-análise
+[x] Manter compatibilidade com sistema atual
+[x] Log de clarification direto
+
+8. CACHE DE STATUS ✅
+[x] Implementar cache Redis/Memory
+[x] TTL de 5 minutos
+[x] Invalidação automática
+[x] Fallback para teste direto
+
+9. TESTES E VALIDAÇÃO ⏳
+[ ] Testar cenários de falha
+[ ] Validar performance
+[ ] Verificar logs
+[ ] Teste de carga
+
+//schema console_conteudo.Artigos
+_id
+tag
+categoria_id
+categoria_titulo
+artigo_titulo
+artigo_conteudo
+createdAt
+updatedAt
+
+//schema console_conteudo.Bot_perguntas
+_id
+Pergunta
+Resposta
+Palavras-chave
+Sinonimos
+Tabulação
+createdAt
+updatedAt
+
+
+3. INVERSÃO ORDEM IAs ⏳
+[ ] OpenAI como primária na análise
+[ ] Gemini como fallback
+[ ] Manter redundância completa
+[ ] Testar cenários de falha
+
+4. CLARIFICATION DIRETO ⏳
+[ ] Armazenar dados da análise inicial
+[ ] Resposta direta sem re-análise
+[ ] Manter compatibilidade com sistema atual
+[ ] Log de clarification direto
+
+5. CACHE DE STATUS ⏳
+[ ] Implementar cache Redis/Memory
+[ ] TTL de 5 minutos
+[ ] Invalidação automática
+[ ] Fallback para teste direto
+
+6. TESTES E VALIDAÇÃO ⏳
+[ ] Testar cenários de falha
+[ ] Validar performance
+[ ] Verificar logs
+[ ] Teste de carga

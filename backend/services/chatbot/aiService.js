@@ -1,5 +1,5 @@
 // AI Service - Integração híbrida com IA para respostas inteligentes
-// VERSION: v2.4.1 | DATE: 2025-01-27 | AUTHOR: Lucas Gravina - VeloHub Development Team
+// VERSION: v2.5.0 | DATE: 2025-09-29 | AUTHOR: Lucas Gravina - VeloHub Development Team
 const { OpenAI } = require('openai');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const config = require('../../config');
@@ -8,8 +8,15 @@ class AIService {
   constructor() {
     this.openai = null;
     this.gemini = null;
-    this.openaiModel = "gpt-4o-mini"; // Modelo otimizado para custo (fallback)
-    this.geminiModel = "gemini-2.5-pro"; // Modelo Gemini 2.5 Pro (primário)
+    this.openaiModel = "gpt-4o-mini"; // Modelo OpenAI (primário)
+    this.geminiModel = "gemini-2.5-pro"; // Modelo Gemini (fallback)
+    
+    // Cache de status das IAs (TTL 5min)
+    this.statusCache = {
+      data: null,
+      timestamp: null,
+      ttl: 5 * 60 * 1000 // 5 minutos em ms
+    };
   }
 
   /**
@@ -36,7 +43,7 @@ class AIService {
 
   /**
    * Gera resposta inteligente baseada na pergunta e contexto
-   * FLUXO: Gemini (primário) → OpenAI (fallback) → Resposta padrão
+   * FLUXO: Primária (handshake) → Secundária (fallback) → Resposta padrão
    * @param {string} question - Pergunta do usuário
    * @param {string} context - Contexto da base de conhecimento
    * @param {Array} sessionHistory - Histórico da sessão
@@ -44,14 +51,30 @@ class AIService {
    * @param {string} email - Email do usuário
    * @param {Object} searchResults - Resultados da busca híbrida (opcional)
    * @param {string} formatType - Tipo de formatação (conversational, whatsapp, email)
+   * @param {string} primaryAI - IA primária definida pelo handshake ('OpenAI' ou 'Gemini')
    * @returns {Promise<Object>} Resposta com provider usado
    */
-  async generateResponse(question, context = "", sessionHistory = [], userId = null, email = null, searchResults = null, formatType = 'conversational') {
+  async generateResponse(question, context = "", sessionHistory = [], userId = null, email = null, searchResults = null, formatType = 'conversational', primaryAI = 'OpenAI') {
     try {
-      // 1. TENTAR GEMINI PRIMEIRO (IA PRIMÁRIA)
-      if (this.isGeminiConfigured()) {
+      console.log(`🤖 AI Service: Gerando resposta para usuário ${userId || 'anônimo'} - Primária: ${primaryAI}`);
+      
+      // 1. TENTAR IA PRIMÁRIA (definida pelo handshake)
+      if (primaryAI === 'OpenAI' && this.isOpenAIConfigured()) {
         try {
-          console.log(`🤖 AI Service: Tentando Gemini (primário) para usuário ${userId || 'anônimo'}`);
+          console.log(`🤖 AI Service: Tentando OpenAI (primária) para usuário ${userId || 'anônimo'}`);
+          const response = await this._generateWithOpenAI(question, context, sessionHistory, userId, email, searchResults, formatType);
+          return {
+            response: response,
+            provider: 'OpenAI',
+            model: this.openaiModel,
+            success: true
+          };
+        } catch (openaiError) {
+          console.warn('⚠️ AI Service: OpenAI falhou, tentando Gemini fallback:', openaiError.message);
+        }
+      } else if (primaryAI === 'Gemini' && this.isGeminiConfigured()) {
+        try {
+          console.log(`🤖 AI Service: Tentando Gemini (primária) para usuário ${userId || 'anônimo'}`);
           const response = await this._generateWithGemini(question, context, sessionHistory, userId, email, searchResults, formatType);
           return {
             response: response,
@@ -64,8 +87,21 @@ class AIService {
         }
       }
 
-      // 2. FALLBACK PARA OPENAI (IA SECUNDÁRIA)
-      if (this.isOpenAIConfigured()) {
+      // 2. FALLBACK PARA IA SECUNDÁRIA
+      if (primaryAI === 'OpenAI' && this.isGeminiConfigured()) {
+        try {
+          console.log(`🤖 AI Service: Usando Gemini (fallback) para usuário ${userId || 'anônimo'}`);
+          const response = await this._generateWithGemini(question, context, sessionHistory, userId, email, searchResults, formatType);
+          return {
+            response: response,
+            provider: 'Gemini',
+            model: this.geminiModel,
+            success: true
+          };
+        } catch (geminiError) {
+          console.error('❌ AI Service: Gemini também falhou:', geminiError.message);
+        }
+      } else if (primaryAI === 'Gemini' && this.isOpenAIConfigured()) {
         try {
           console.log(`🤖 AI Service: Usando OpenAI (fallback) para usuário ${userId || 'anônimo'}`);
           const response = await this._generateWithOpenAI(question, context, sessionHistory, userId, email, searchResults, formatType);
@@ -241,12 +277,11 @@ class AIService {
         throw new Error('IA não configurada para análise');
       }
 
-      // Construir contexto com todas as perguntas da base
+      // Construir contexto com as perguntas filtradas por palavras chave e sinônimos da base
       const contextData = botPerguntasData.map((item, index) => {
-        return `${index + 1}. **Pergunta:** ${item.Pergunta || item.pergunta || 'N/A'}
-   **Palavras-chave:** ${item["Palavras-chave"] || item.palavras_chave || 'N/A'}
-   **Sinônimos:** ${item.Sinonimos || item.sinonimos || 'N/A'}
-   **Resposta:** ${(item.Resposta || item.resposta || '').substring(0, 100)}...`;
+        return `${index + 1}. **Pergunta:** ${item.Pergunta || 'N/A'}
+   **Palavras-chave:** ${item["Palavras-chave"] || 'N/A'}
+   **Sinônimos:** ${item.Sinonimos || 'N/A'}`;
       }).join('\n\n');
 
       const analysisPrompt = `# ANALISADOR DE PERGUNTAS - VELOBOT
@@ -563,32 +598,38 @@ ${sessionHistory.length > 0 ?
   }
 
   /**
-   * Testa a conexão com as APIs de IA
+   * Verifica se o cache de status ainda é válido
+   * @returns {boolean} Status do cache
+   */
+  _isCacheValid() {
+    if (!this.statusCache.data || !this.statusCache.timestamp) {
+      return false;
+    }
+    
+    const now = Date.now();
+    const cacheAge = now - this.statusCache.timestamp;
+    return cacheAge < this.statusCache.ttl;
+  }
+
+  /**
+   * Testa a conexão com as APIs de IA (com cache)
    * @returns {Promise<Object>} Status das conexões
    */
   async testConnection() {
+    // Verificar cache primeiro
+    if (this._isCacheValid()) {
+      console.log('✅ AI Service: Usando cache de status das IAs');
+      return this.statusCache.data;
+    }
+    
+    console.log('🔍 AI Service: Testando conexões das IAs (cache expirado)');
     const results = {
-      gemini: { available: false, model: this.geminiModel, priority: 'primary' },
-      openai: { available: false, model: this.openaiModel, priority: 'fallback' },
+      openai: { available: false, model: this.openaiModel, priority: 'primary' },
+      gemini: { available: false, model: this.geminiModel, priority: 'fallback' },
       anyAvailable: false
     };
 
-    // Teste Gemini (primário)
-    if (this.isGeminiConfigured()) {
-      try {
-        const gemini = this._initializeGemini();
-        if (gemini) {
-          const model = gemini.getGenerativeModel({ model: this.geminiModel });
-          const result = await model.generateContent("Teste de conexão");
-          results.gemini.available = true;
-          console.log('✅ Gemini: Conexão testada com sucesso');
-        }
-      } catch (error) {
-        console.error('❌ Gemini: Erro no teste de conexão:', error.message);
-      }
-    }
-
-    // Teste OpenAI (fallback)
+    // Teste OpenAI (primário)
     if (this.isOpenAIConfigured()) {
       try {
         const openai = this._initializeOpenAI();
@@ -606,12 +647,33 @@ ${sessionHistory.length > 0 ?
       }
     }
 
+    // Teste Gemini (fallback)
+    if (this.isGeminiConfigured()) {
+      try {
+        const gemini = this._initializeGemini();
+        if (gemini) {
+          const model = gemini.getGenerativeModel({ model: this.geminiModel });
+          const result = await model.generateContent("Teste de conexão");
+          results.gemini.available = true;
+          console.log('✅ Gemini: Conexão testada com sucesso');
+        }
+      } catch (error) {
+        console.error('❌ Gemini: Erro no teste de conexão:', error.message);
+      }
+    }
+
     results.anyAvailable = results.gemini.available || results.openai.available;
+    
+    // Atualizar cache
+    this.statusCache.data = results;
+    this.statusCache.timestamp = Date.now();
+    
+    console.log(`✅ AI Service: Cache de status atualizado - Gemini: ${results.gemini.available}, OpenAI: ${results.openai.available}`);
     
     if (!results.anyAvailable) {
       console.warn('⚠️ Nenhuma API de IA disponível');
     }
-
+    
     return results;
   }
 }

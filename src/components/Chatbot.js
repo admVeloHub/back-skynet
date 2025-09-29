@@ -1,6 +1,6 @@
 /**
  * VeloHub V3 - Chatbot Component
- * VERSION: v1.2.0 | DATE: 2025-01-27 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.3.0 | DATE: 2025-09-29 | AUTHOR: VeloHub Development Team
  */
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -138,6 +138,82 @@ const Chatbot = ({ prompt }) => {
             };
 
             setMessages(prev => [...prev, errorMessage]);
+        }
+    };
+
+    // Função para clarification direto (sem re-análise da IA)
+    const handleClarificationClick = async (option) => {
+        try {
+            const trimmedInput = option.trim();
+            if (!trimmedInput || isTyping) return;
+
+            const newMessages = [...messages, { id: Date.now(), text: trimmedInput, sender: 'user' }];
+            setMessages(newMessages);
+            setIsTyping(true);
+
+            try {
+                console.log('🔍 Clarification Direto: Enviando opção selecionada:', trimmedInput);
+
+                // Chamar API de clarification direto
+                const response = await fetch(`${API_BASE_URL}/chatbot/clarification`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        question: trimmedInput,
+                        userId: userId,
+                        sessionId: sessionId
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Erro na API: ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                if (data.success) {
+                    console.log('✅ Clarification Direto: Resposta recebida:', data);
+
+                    // Atualizar sessionId se fornecido
+                    if (data.sessionId) {
+                        setSessionId(data.sessionId);
+                    }
+
+                    // Adicionar resposta do bot
+                    const botMessage = {
+                        id: Date.now() + 1,
+                        text: data.response,
+                        sender: 'bot',
+                        timestamp: new Date().toISOString(),
+                        source: data.source,
+                        sourceId: data.sourceId,
+                        sourceRow: data.sourceRow
+                    };
+
+                    setMessages(prev => [...prev, botMessage]);
+                } else {
+                    throw new Error(data.error || 'Erro na resposta da API');
+                }
+
+            } catch (error) {
+                console.error('❌ Clarification Direto: Erro ao enviar solicitação:', error);
+                
+                const errorMessage = {
+                    id: Date.now() + 1,
+                    text: 'Desculpe, ocorreu um erro ao processar sua seleção. Tente novamente.',
+                    sender: 'bot',
+                    timestamp: new Date().toISOString()
+                };
+                
+                setMessages(prev => [...prev, errorMessage]);
+            }
+
+        } catch (error) {
+            console.error('❌ Clarification Direto: Erro geral:', error);
+        } finally {
+            setIsTyping(false);
         }
     };
 
@@ -478,7 +554,7 @@ const Chatbot = ({ prompt }) => {
                                                 {msg.clarificationData.options.slice(0, 5).map((option, index) => (
                                                     <button
                                                         key={index}
-                                                        onClick={() => handleSendMessage(option)}
+                                                        onClick={() => handleClarificationClick(option)}
                                                         className="w-full text-left p-2 text-sm rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
                                                         style={{color: 'var(--cor-texto-principal)'}}
                                                     >

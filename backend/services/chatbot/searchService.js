@@ -36,7 +36,7 @@ class SearchService {
         
         // Log detalhado para as primeiras 3 perguntas ou scores > 0.05
         if (i < 3 || score > 0.05) {
-          console.log(`🔍 Search: Pergunta ${i+1}: "${pergunta.Pergunta || pergunta.pergunta || 'Sem título'}" - Score: ${score.toFixed(3)}`);
+          console.log(`🔍 Search: Pergunta ${i+1}: "${pergunta.Pergunta || 'Sem título'}" - Score: ${score.toFixed(3)}`);
         }
         
         if (score > bestScore) {
@@ -374,10 +374,10 @@ class SearchService {
       const documento = botPerguntasData[i];
       
       // Extrair campos do documento MongoDB
-      const pergunta = documento.Pergunta || documento.pergunta || '';
-      const resposta = documento.Resposta || documento.resposta || '';
-      const palavrasChave = documento["Palavras-chave"] || documento.palavras_chave || documento.palavrasChave || '';
-      const sinonimos = documento.Sinonimos || documento.sinonimos || '';
+      const pergunta = documento.Pergunta || '';
+      const resposta = documento.Resposta || '';
+      const palavrasChave = documento["Palavras-chave"] || '';
+      const sinonimos = documento.Sinonimos || '';
       
       // Combinar palavras-chave e sinônimos para busca
       const textoBusca = `${palavrasChave} ${sinonimos}`.toLowerCase();
@@ -410,7 +410,7 @@ class SearchService {
     // Desduplicação e ordenação
     const uniqueMatches = {};
     todasAsCorrespondencias.forEach(match => {
-      const key = match.perguntaOriginal.trim();
+      const key = match.Pergunta.trim();
       if (!uniqueMatches[key] || match.score > uniqueMatches[key].score) {
         uniqueMatches[key] = match;
       }
@@ -436,7 +436,7 @@ class SearchService {
    * @returns {Object} Menu de esclarecimento
    */
   generateClarificationMenu(matches, question) {
-    const options = matches.slice(0, 12).map(match => match.perguntaOriginal);
+    const options = matches.slice(0, 12).map(match => match.Pergunta);
     
     return {
       status: "clarification_needed",
@@ -454,7 +454,7 @@ class SearchService {
    * @returns {Object} Menu de esclarecimento
    */
   generateClarificationMenuFromAI(relevantOptions, question) {
-    const options = relevantOptions.slice(0, 12).map(option => option.Pergunta || option.pergunta);
+    const options = relevantOptions.slice(0, 12).map(option => option.Pergunta);
     
     return {
       status: "clarification_needed",
