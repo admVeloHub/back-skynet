@@ -1,6 +1,6 @@
 /**
  * VeloHub V3 - Chatbot Component
- * VERSION: v1.3.1 | DATE: 2025-01-29 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.3.2 | DATE: 2025-01-29 | AUTHOR: VeloHub Development Team
  */
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -49,19 +49,37 @@ const Chatbot = ({ prompt }) => {
         }
     };
 
-    // Função para executar handshake das IAs quando o chatbot é inicializado
+    // Função para inicializar o VeloBot (handshake + carregamento do cache)
     const initializeVeloBot = async () => {
         try {
-            console.log('🚀 VeloBot: Inicializando handshake das IAs...');
+            console.log('🚀 VeloBot: Inicializando sistema completo...');
+            
+            // 1. Inicializar VeloBot (carregar Bot_perguntas em cache + handshake)
+            if (userId && userId !== 'anonymous') {
+                console.log('📦 VeloBot: Carregando Bot_perguntas em cache...');
+                const initResponse = await fetch(`${API_BASE_URL}/chatbot/init?userId=${encodeURIComponent(userId)}`);
+                if (initResponse.ok) {
+                    const initData = await initResponse.json();
+                    console.log('✅ VeloBot: Inicialização completa - IA primária:', initData.primaryAI);
+                    console.log('✅ VeloBot: Bot_perguntas carregado em cache');
+                } else {
+                    console.warn('⚠️ VeloBot: Inicialização falhou - status:', initResponse.status);
+                }
+            } else {
+                console.warn('⚠️ VeloBot: Usuário não identificado, pulando inicialização');
+            }
+            
+            // 2. Health check das IAs
+            console.log('🚀 VeloBot: Verificando saúde das IAs...');
             const handshakeResponse = await fetch(`${API_BASE_URL}/chatbot/health-check`);
             if (handshakeResponse.ok) {
                 const handshakeData = await handshakeResponse.json();
-                console.log('✅ VeloBot: Handshake executado - IA primária:', handshakeData.primaryAI);
+                console.log('✅ VeloBot: Health check executado - IA primária:', handshakeData.primaryAI);
             } else {
-                console.warn('⚠️ VeloBot: Handshake falhou - status:', handshakeResponse.status);
+                console.warn('⚠️ VeloBot: Health check falhou - status:', handshakeResponse.status);
             }
-        } catch (handshakeError) {
-            console.warn('⚠️ VeloBot: Handshake falhou (não crítico):', handshakeError.message);
+        } catch (error) {
+            console.warn('⚠️ VeloBot: Erro na inicialização:', error.message);
         }
     };
 
