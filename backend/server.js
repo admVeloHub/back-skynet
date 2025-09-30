@@ -9,8 +9,8 @@ console.log("🚀 INICIANDO APLICAÇÃO - VERSÃO DO CÓDIGO: 1.5.5 - DIAGNÓSTI
 // LOG DE DIAGNÓSTICO #2: Verificar as variáveis de ambiente
 console.log("🔍 Verificando variáveis de ambiente...");
 console.log(`- NODE_ENV: ${process.env.NODE_ENV}`);
-console.log(`- OPENAI_API_KEY existe: ${!!process.env.OPENAI_API_KEY}`);
-console.log(`- GEMINI_API_KEY existe: ${!!process.env.GEMINI_API_KEY}`);
+console.log(`- GPT_API existe: ${!!process.env.GPT_API}`);
+console.log(`- GEMINI_API existe: ${!!process.env.GEMINI_API}`);
 console.log(`- MONGODB_URI existe: ${!!process.env.MONGODB_URI}`);
 console.log(`- PORT: ${process.env.PORT}`);
 
