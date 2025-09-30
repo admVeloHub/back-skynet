@@ -23,9 +23,9 @@ RUN npm run build
 FROM node:18-alpine AS production
 WORKDIR /app
 
-# Instalar dependências mínimas do backend
-COPY backend/package-minimal.json ./package.json
-RUN npm ci --only=production && npm cache clean --force
+# Instalar dependências do backend
+COPY backend/package*.json ./
+RUN npm install --only=production && npm cache clean --force
 
 # Copiar código do backend
 COPY backend/ ./
@@ -40,5 +40,5 @@ EXPOSE 8080
 ENV NODE_ENV=production
 ENV PORT=8080
 
-# Comando para iniciar o servidor (temporariamente usando servidor mínimo)
-CMD ["node", "minimal-server.js"]
+# Comando para iniciar o servidor
+CMD ["node", "server.js"]
