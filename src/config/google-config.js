@@ -1,4 +1,5 @@
 // Configurações do Google OAuth 2.0 para VeloHub
+// VERSION: v1.2.0 | DATE: 2025-01-30 | AUTHOR: Lucas Gravina - VeloHub Development Team
 // 
 // INSTRUÇÕES:
 // 1. Acesse https://console.cloud.google.com/
@@ -19,7 +20,7 @@
 
 export const GOOGLE_CONFIG = {
   // Client ID do Google Cloud Console para VeloHub
-  CLIENT_ID: process.env.REACT_APP_GOOGLE_CLIENT_ID,
+  CLIENT_ID: process.env.REACT_APP_GOOGLE_CLIENT_ID || "278491073220-eb4ogvn3aifu0ut9mq3rvu5r9r9l3137.apps.googleusercontent.com",
   
   // Domínio de email autorizado
   AUTHORIZED_DOMAIN: process.env.REACT_APP_AUTHORIZED_DOMAIN,
