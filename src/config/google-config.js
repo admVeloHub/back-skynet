@@ -19,10 +19,10 @@
 
 export const GOOGLE_CONFIG = {
   // Client ID do Google Cloud Console para VeloHub
-  CLIENT_ID: process.env.REACT_APP_GOOGLE_CLIENT_ID || '278491073220-eb4ogvn3aifu0ut9mq3rvu5r9r9l3137.apps.googleusercontent.com',
+  CLIENT_ID: process.env.REACT_APP_GOOGLE_CLIENT_ID,
   
   // Domínio de email autorizado
-  AUTHORIZED_DOMAIN: process.env.REACT_APP_AUTHORIZED_DOMAIN || '@velotax.com.br',
+  AUTHORIZED_DOMAIN: process.env.REACT_APP_AUTHORIZED_DOMAIN,
   
   // Duração da sessão em milissegundos (6 horas)
   SESSION_DURATION: 6 * 60 * 60 * 1000,

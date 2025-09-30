@@ -8,7 +8,6 @@ yarn-debug.log*
 yarn-error.log*
 
 # Arquivos de ambiente
-.env
 .env.local
 .env.development
 .env.test

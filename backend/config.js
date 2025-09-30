@@ -17,7 +17,7 @@ module.exports = {
   // ===========================================
   
   // MongoDB Connection String
-  MONGODB_URI: process.env.MONGODB_URI,
+  MONGODB_URI: process.env.MONGO_ENV,
   
   // ===========================================
   // GOOGLE SERVICES
@@ -72,7 +72,7 @@ module.exports = {
    */
   validateConfig() {
     const required = [
-      'MONGODB_URI',
+      'MONGO_ENV',
       'GOOGLE_CLIENT_ID',
       'GOOGLE_CLIENT_SECRET'
     ];

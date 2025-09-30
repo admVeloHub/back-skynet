@@ -11,7 +11,7 @@ console.log("🔍 Verificando variáveis de ambiente...");
 console.log(`- NODE_ENV: ${process.env.NODE_ENV}`);
 console.log(`- GPT_API existe: ${!!process.env.GPT_API}`);
 console.log(`- GEMINI_API existe: ${!!process.env.GEMINI_API}`);
-console.log(`- MONGODB_URI existe: ${!!process.env.MONGODB_URI}`);
+console.log(`- MONGO_ENV existe: ${!!process.env.MONGO_ENV}`);
 console.log(`- PORT: ${process.env.PORT}`);
 
 const express = require('express');
@@ -70,8 +70,7 @@ const PORT = process.env.PORT || 8080;
 app.use(cors({
   origin: [
     'https://app.velohub.velotax.com.br', // NOVO DOMÍNIO PERSONALIZADO
-    'https://velohub-v3-278491073220.us-east1.run.app',
-    'https://velohub-278491073220.us-east1.run.app', // URL específica do Cloud Run
+    process.env.CORS_ORIGIN || 'https://velohub-278491073220.us-east1.run.app',
     'http://localhost:3000',
     'http://localhost:5000'
   ],
@@ -132,14 +131,14 @@ app.use((req, res, next) => {
 app.use(express.static(path.join(__dirname, 'public')));
 
 // MongoDB Connection
-const uri = process.env.MONGODB_URI;
+const uri = process.env.MONGO_ENV;
 
 console.log('🔍 Verificando configuração MongoDB...');
-console.log('🔍 MONGODB_URI definida:', !!uri);
+console.log('🔍 MONGO_ENV definida:', !!uri);
 if (uri) {
-  console.log('🔍 MONGODB_URI (primeiros 50 chars):', uri.substring(0, 50) + '...');
+  console.log('🔍 MONGO_ENV (primeiros 50 chars):', uri.substring(0, 50) + '...');
 } else {
-  console.warn('⚠️ MONGODB_URI não configurada - servidor iniciará sem MongoDB');
+  console.warn('⚠️ MONGO_ENV não configurada - servidor iniciará sem MongoDB');
   console.warn('⚠️ APIs que dependem do MongoDB não funcionarão');
 }
 const client = uri ? new MongoClient(uri, {

@@ -17,7 +17,7 @@ class UserActivityLogger {
     if (this.isConnected) return;
 
     try {
-      this.client = new MongoClient(process.env.MONGODB_URI);
+      this.client = new MongoClient(process.env.MONGO_ENV);
       await this.client.connect();
       this.db = this.client.db('console_conteudo');
       this.collection = this.db.collection('user_activity');

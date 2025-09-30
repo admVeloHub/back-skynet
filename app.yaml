@@ -9,15 +9,27 @@ env_variables:
   NODE_ENV: production
   PORT: 8080
   
-  # MongoDB - URI completa
-  MONGODB_URI: "mongodb+srv://lucasgravina:nKQu8bSN6iZl8FPo@clustercentral.quqgq6x.mongodb.net/console_conteudo?retryWrites=true&w=majority&appName=ClusterCentral"
+  # MongoDB - URI completa (via Secret Manager)
+  MONGO_ENV: ${mongodb-uri}
   
-  # Google OAuth - Credenciais
-  GOOGLE_CLIENT_ID: "278491073220-eb4ogvn3aifu0ut9mq3rvu5r9r9l3137.apps.googleusercontent.com"
-  GOOGLE_CLIENT_SECRET: "SEU_GOOGLE_CLIENT_SECRET_AQUI"
+  # Google OAuth - Credenciais (via Secret Manager)
+  GOOGLE_CLIENT_ID: ${google-client-id}
+  GOOGLE_CLIENT_SECRET: ${google-client-secret}
+  
+  # APIs de IA (via Secret Manager)
+  GPT_API: ${GPT_apikey}
+  GEMINI_API: ${Gemini_apikey}
+  
+  # Google Sheets Credentials (via Secret Manager)
+  GOOGLE_CREDENTIALS: ${GOOGLE_CREDENTIALS}
   
   # Configurações adicionais
   CORS_ORIGIN: "https://velohub-471220.uc.r.appspot.com"
+  
+  # Variáveis do Container (expostas)
+  REACT_APP_GOOGLE_CLIENT_ID: "278491073220-eb4ogvn3aifu0ut9mq3rvu5r9r9l3137.apps.googleusercontent.com"
+  REACT_APP_AUTHORIZED_DOMAIN: "@velotax.com.br"
+  CHATBOT_LOG_SHEET_NAME: "Log_IA_Usage"
 
 # Configuração de scaling automático
 automatic_scaling:

@@ -26,5 +26,37 @@ Quero tudo analisado e pensado, e decisões acertadas com 100% de certeza da imp
 - Se a solicitação feita para uma tarefa ser excutada depende de mais informações, de confirmações de dados ou mais recursos, solicite essas informações antes de iniciar a tarefa.Mantenha o compliance com a diretiva nro 4 e não crie aleatóriamente dados adicionais para completar as tarefas.
 - Ao final da leitura das diretrizes, leia o arquivo DEPLOY_LOG.md e o arquivo CLEANUP_REPO.md se houver, e o layout guidelines s ehouver. a ter uma visão geral do projeto e das alterações realizadas.
 
+## 🚨 DIRETRIZES CRÍTICAS - COMANDOS GIT
+
+### **PROIBIÇÕES ABSOLUTAS:**
+- **NUNCA** execute `git reset --hard` sem confirmação explícita
+- **NUNCA** execute `git reset` de qualquer tipo sem confirmação
+- **NUNCA** execute comandos que possam destruir trabalho (reset, rebase, force push)
+- **NUNCA** execute comandos git destrutivos quando solicitado para fazer push
+
+### **COMANDOS GIT SEGUROS:**
+- **APENAS** execute comandos git seguros: `git add`, `git commit`, `git push`, `git status`, `git log`
+- **SEMPRE** confirme o comando exato antes de executar
+- **SEMPRE** leia cuidadosamente o que foi solicitado vs o que será executado
+
+### **PROTOCOLO DE SEGURANÇA:**
+1. **ANTES** de executar qualquer comando git, confirme:
+   - O comando exato solicitado
+   - O comando que será executado
+   - Se há risco de perda de dados
+2. **SE HOUVER DÚVIDA**, pergunte antes de executar
+3. **SE O COMANDO FOR DESTRUTIVO**, solicite confirmação explícita
+4. **SE ERRO FOR COMETIDO**, pare imediatamente e reporte
+
+### **EXEMPLOS DE ERROS CRÍTICOS:**
+- ❌ Solicitação: "fazer push" → Execução: `git reset --hard HEAD~1`
+- ❌ Solicitação: "atualizar repositório" → Execução: `git reset --hard`
+- ❌ Solicitação: "limpar mudanças" → Execução: comandos destrutivos
+
+### **EXEMPLOS DE EXECUÇÃO CORRETA:**
+- ✅ Solicitação: "fazer push" → Execução: `git push origin main`
+- ✅ Solicitação: "adicionar arquivos" → Execução: `git add .`
+- ✅ Solicitação: "fazer commit" → Execução: `git commit -m "mensagem"`
+
 # Diretrizes de Trabalho
-<!-- VERSION: v1.1.0 | DATE: 2025-09-17 | AUTHOR:Lucas Gravina - VeloHub Development Team
+<!-- VERSION: v1.2.0 | DATE: 2025-01-29 | AUTHOR:Lucas Gravina - VeloHub Development Team

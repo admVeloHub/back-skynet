@@ -1,84 +1,169 @@
-# VeloHub - Portal de Processos
+# VeloHub V3 - Portal de Processos Inteligente
+
+<!-- VERSION: v3.1.5 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team -->
 
 ## 📋 Descrição
-Portal de processos com chatbot integrado, sistema de notícias e suporte ao usuário.
+Portal de processos com chatbot inteligente integrado, sistema de notícias críticas, suporte ao usuário e integração completa com Google Cloud Platform.
 
 ## 🚀 Como Executar
 
-### Versão Padrão (v1)
+### Desenvolvimento Local
 ```bash
+# Instalar dependências
+npm install
+
+# Executar servidor backend
+cd backend && npm install && npm start
+
+# Executar frontend (em outro terminal)
 npm start
 ```
 
-### Versão v2 (Nova Interface)
+### Produção (Google Cloud)
 ```bash
-npm run start:v2
+# Deploy para App Engine
+gcloud app deploy
+
+# Deploy para Cloud Run
+gcloud run deploy
 ```
 
-## 🔧 Correções Realizadas
+## 🔧 Configuração de Ambiente
 
-### Problema Identificado
-- O arquivo `velohub_v2.html` continha código React mas tinha extensão `.html`
-- Isso causava erros de sintaxe e problemas de execução
-- O código estava misturado e não funcionava corretamente
+### Variáveis de Ambiente Necessárias
+O projeto utiliza variáveis de ambiente para configuração segura. Configure no Google Cloud Secret Manager:
 
-### Solução Implementada
-1. **Conversão do código**: Convertido o código do `velohub_v2.html` para um componente React adequado (`src/App_v2.js`)
-2. **Estrutura organizada**: Separado os componentes em arquivos apropriados
-3. **Sistema de versões**: Implementado um sistema para alternar entre versões usando variáveis de ambiente
-4. **Configuração do Tailwind**: Verificado que o modo escuro está configurado corretamente
+- `MONGO_ENV` - String de conexão MongoDB
+- `GOOGLE_CLIENT_ID` - Client ID do Google OAuth
+- `GOOGLE_CLIENT_SECRET` - Client Secret do Google OAuth
+- `GPT_API` - Chave da API OpenAI
+- `GEMINI_API` - Chave da API Google Gemini
+- `GOOGLE_CREDENTIALS` - Credenciais do Google Sheets
+
+### Teste de Configuração
+```bash
+node test-config.js
+```
 
 ## 📁 Estrutura do Projeto
 
 ```
-src/
-├── App.js          # Versão original
-├── App_v2.js       # Nova versão (convertida do velohub_v2.html)
-├── index.js        # Ponto de entrada (detecta versão automaticamente)
-├── index.css       # Estilos globais
-├── services/       # Serviços de API
-└── lib/           # Bibliotecas e configurações
+VeloHub V3/
+├── src/                    # Frontend React
+│   ├── components/         # Componentes React
+│   ├── config/            # Configurações do frontend
+│   ├── lib/               # Bibliotecas e utilitários
+│   └── services/          # Serviços de API
+├── backend/               # Backend Node.js
+│   ├── services/          # Serviços do chatbot
+│   └── config.js          # Configuração centralizada
+├── public/                # Arquivos estáticos
+├── app.yaml              # Configuração Google App Engine
+├── cloudbuild.yaml       # CI/CD Google Cloud Build
+├── Dockerfile            # Container Docker
+└── tailwind.config.js    # Configuração Tailwind CSS
 ```
 
-## 🎨 Funcionalidades
+## 🎨 Funcionalidades Principais
 
-### Versão v2 (Nova)
-- ✅ Interface moderna com modo escuro
-- ✅ Chatbot integrado com feedback
-- ✅ Sistema de notícias críticas
-- ✅ Navegação entre páginas
-- ✅ Componentes responsivos
-- ✅ Integração com Lucide React icons
+### 🤖 Chatbot Inteligente
+- ✅ Integração com OpenAI e Google Gemini
+- ✅ Sistema de fallback automático
+- ✅ Memória de conversa (10 minutos)
+- ✅ Análise de perguntas com IA
+- ✅ Sistema de esclarecimento inteligente
+- ✅ Logs de uso e feedback
 
-### Componentes Principais
-- **Header**: Navegação e busca
-- **HomePage**: Dashboard com notícias e status
-- **ProcessosPage**: Chatbot com FAQ
-- **ApoioPage**: Página de suporte
-- **Chatbot**: Interface de chat com feedback
+### 📰 Sistema de Notícias
+- ✅ Notícias críticas em tempo real
+- ✅ Sistema de alertas prioritários
+- ✅ Integração com MongoDB
+- ✅ Cache inteligente de dados
+
+### 🔐 Autenticação e Segurança
+- ✅ Google OAuth 2.0
+- ✅ Domínio autorizado (@velotax.com.br)
+- ✅ Sessões seguras
+- ✅ Secrets gerenciados pelo Google Cloud
+
+### 📊 Logs e Monitoramento
+- ✅ Logs de atividade no MongoDB
+- ✅ Logs de uso da IA no Google Sheets
+- ✅ Sistema de feedback
+- ✅ Métricas de performance
 
 ## 🛠️ Tecnologias Utilizadas
-- React 18
-- Tailwind CSS
-- Lucide React (ícones)
-- MongoDB (backend)
+
+### Frontend
+- **React 18** - Interface de usuário
+- **Tailwind CSS** - Estilização com tema VeloHub
+- **Lucide React** - Ícones modernos
+
+### Backend
+- **Node.js** - Servidor backend
+- **Express.js** - Framework web
+- **MongoDB** - Banco de dados
+- **Google Cloud APIs** - Integração com serviços Google
+
+### Infraestrutura
+- **Google App Engine** - Hospedagem
+- **Google Cloud Run** - Containers
+- **Google Secret Manager** - Gerenciamento de secrets
+- **Google Cloud Build** - CI/CD
 
 ## 📝 Scripts Disponíveis
-- `npm start` - Executa versão padrão
-- `npm run start:v2` - Executa versão v2
-- `npm run build` - Build da versão padrão
-- `npm run build:v2` - Build da versão v2
-- `npm run server` - Executa servidor backend
-- `npm run backend` - Executa servidor backend alternativo
 
-## 🔍 Status da Correção
-✅ **Problema resolvido**: O arquivo `velohub_v2.html` foi convertido corretamente para React
-✅ **Estrutura organizada**: Código separado em componentes adequados
-✅ **Sistema de versões**: Implementado sistema para alternar entre versões
-✅ **Funcionalidade preservada**: Todas as funcionalidades da versão original mantidas
+### Desenvolvimento
+```bash
+npm start              # Frontend React
+npm run build          # Build de produção
+cd backend && npm start # Backend Node.js
+```
 
-## 🚨 Evitando Loops Agressivos
-- Implementado sistema de detecção de versão automática
-- Código organizado em componentes separados
-- Documentação clara para evitar confusão
-- Estrutura de projeto padronizada
+### Testes e Diagnóstico
+```bash
+node test-config.js    # Teste de configuração
+npm run lint           # Verificação de código
+```
+
+### Deploy
+```bash
+gcloud app deploy      # Deploy App Engine
+gcloud run deploy      # Deploy Cloud Run
+```
+
+## 🔒 Segurança
+
+### ✅ Implementado
+- **Secrets gerenciados** pelo Google Secret Manager
+- **Nenhuma chave hardcoded** no código
+- **Variáveis de ambiente** para todas as configurações
+- **CORS configurado** adequadamente
+- **Autenticação OAuth** com domínio restrito
+
+### 🛡️ Boas Práticas
+- Configurações sensíveis via Secret Manager
+- Validação de entrada em todas as APIs
+- Logs de segurança e auditoria
+- Timeouts configurados para APIs externas
+
+## 🚀 Deploy e Produção
+
+### Google Cloud Platform
+- **App Engine** para hospedagem principal
+- **Cloud Run** para containers
+- **Secret Manager** para chaves sensíveis
+- **Cloud Build** para CI/CD automático
+
+### Monitoramento
+- Logs centralizados no Google Cloud Logging
+- Métricas de performance
+- Alertas de erro automáticos
+- Dashboard de monitoramento
+
+## 📞 Suporte
+
+Para suporte técnico ou dúvidas sobre o projeto, consulte:
+- **Documentação**: `CONFIGURACAO_CHAVES_API.md`
+- **Logs**: Google Cloud Console
+- **Configuração**: `test-config.js`
