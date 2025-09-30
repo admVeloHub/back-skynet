@@ -10,7 +10,7 @@ const { MongoClient } = require('mongodb');
 require('dotenv').config();
 
 // Importar serviços do chatbot
-// VERSION: v2.9.7 | DATE: 2025-01-27 | AUTHOR: Lucas Gravina - VeloHub Development Team
+// VERSION: v2.10.0 | DATE: 2025-01-29 | AUTHOR: Lucas Gravina - VeloHub Development Team
 let aiService, searchService, sessionService, feedbackService, logsService, dataCache, userActivityLogger;
 
 console.log('🔄 Iniciando carregamento de serviços...');
@@ -111,7 +111,11 @@ app.use(express.static(path.join(__dirname, 'public')));
 // MongoDB Connection
 const uri = process.env.MONGODB_URI;
 
-if (!uri) {
+console.log('🔍 Verificando configuração MongoDB...');
+console.log('🔍 MONGODB_URI definida:', !!uri);
+if (uri) {
+  console.log('🔍 MONGODB_URI (primeiros 50 chars):', uri.substring(0, 50) + '...');
+} else {
   console.warn('⚠️ MONGODB_URI não configurada - servidor iniciará sem MongoDB');
   console.warn('⚠️ APIs que dependem do MongoDB não funcionarão');
 }
@@ -125,11 +129,13 @@ const client = uri ? new MongoClient(uri, {
 let isConnected = false;
 const connectToMongo = async () => {
   if (!client) {
+    console.error('❌ MongoDB client não configurado');
     throw new Error('MongoDB não configurado');
   }
   
   if (!isConnected) {
     try {
+      console.log('🔌 Tentando conectar ao MongoDB...');
       await client.connect();
       isConnected = true;
       console.log('✅ Conexão MongoDB estabelecida!');
@@ -137,7 +143,10 @@ const connectToMongo = async () => {
       console.error('❌ Erro ao conectar MongoDB:', error);
       throw error;
     }
+  } else {
+    console.log('✅ MongoDB já conectado');
   }
+  
   return client;
 };
 
@@ -1789,6 +1798,8 @@ const fetchModuleStatusFromMongoDB = async () => {
     const latestStatus = await collection
       .findOne({}, { sort: { createdAt: -1 } });
 
+    console.log('🔍 Documento encontrado no MongoDB:', latestStatus);
+
     if (!latestStatus) {
       console.warn('⚠️ Nenhum status encontrado no MongoDB - usando cache local');
       return moduleStatusCache;
@@ -1803,7 +1814,15 @@ const fetchModuleStatusFromMongoDB = async () => {
       'modulo-irpf': latestStatus._irpf || 'on'
     };
 
-    console.log('📊 Status dos módulos atualizado do MongoDB:', mappedStatus);
+    console.log('📊 Status dos módulos mapeado do MongoDB:', mappedStatus);
+    console.log('📊 Campos originais do MongoDB:', {
+      _trabalhador: latestStatus._trabalhador,
+      _pessoal: latestStatus._pessoal,
+      _antecipacao: latestStatus._antecipacao,
+      _pgtoAntecip: latestStatus._pgtoAntecip,
+      _irpf: latestStatus._irpf
+    });
+    
     return mappedStatus;
 
   } catch (error) {
@@ -1821,17 +1840,22 @@ const getModuleStatus = async () => {
   
   // Se cache é válido, retornar cache
   if (lastCacheUpdate && (now - lastCacheUpdate) < CACHE_VALIDITY_MS) {
+    console.log('📊 Cache válido - retornando cache:', moduleStatusCache);
     return moduleStatusCache;
   }
 
   // Cache expirado ou inexistente - buscar do MongoDB
   console.log('🔄 Cache expirado - buscando status do MongoDB...');
+  console.log('🔄 Cache atual:', moduleStatusCache);
+  console.log('🔄 Última atualização:', lastCacheUpdate);
+  
   const freshStatus = await fetchModuleStatusFromMongoDB();
   
   // Atualizar cache
   moduleStatusCache = freshStatus;
   lastCacheUpdate = now;
   
+  console.log('🔄 Cache atualizado:', moduleStatusCache);
   return moduleStatusCache;
 };
 
@@ -1840,10 +1864,32 @@ app.get('/api/module-status', async (req, res) => {
   try {
     console.log('📊 Status dos módulos solicitado');
     const currentStatus = await getModuleStatus();
-    res.json(currentStatus);
+    
+    // Garantir que sempre retornamos dados válidos
+    const validStatus = {
+      'credito-trabalhador': currentStatus['credito-trabalhador'] || 'on',
+      'credito-pessoal': currentStatus['credito-pessoal'] || 'on',
+      'antecipacao': currentStatus['antecipacao'] || 'revisao',
+      'pagamento-antecipado': currentStatus['pagamento-antecipado'] || 'off',
+      'modulo-irpf': currentStatus['modulo-irpf'] || 'on'
+    };
+    
+    console.log('📊 Retornando status dos módulos:', validStatus);
+    res.json(validStatus);
   } catch (error) {
     console.error('❌ Erro ao buscar status dos módulos:', error);
-    res.status(500).json({ error: 'Erro interno do servidor' });
+    
+    // Fallback com dados padrão em caso de erro
+    const fallbackStatus = {
+      'credito-trabalhador': 'on',
+      'credito-pessoal': 'on',
+      'antecipacao': 'revisao',
+      'pagamento-antecipado': 'off',
+      'modulo-irpf': 'on'
+    };
+    
+    console.log('🔄 Usando status fallback:', fallbackStatus);
+    res.json(fallbackStatus);
   }
 });
 
