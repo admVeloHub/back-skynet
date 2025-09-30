@@ -10,14 +10,23 @@ const { MongoClient } = require('mongodb');
 require('dotenv').config();
 
 // Importar serviços do chatbot
-// VERSION: v2.9.1 | DATE: 2025-01-27 | AUTHOR: Lucas Gravina - VeloHub Development Team
-const aiService = require('./services/chatbot/aiService');
-const searchService = require('./services/chatbot/searchService');
-const sessionService = require('./services/chatbot/sessionService');
-const feedbackService = require('./services/chatbot/feedbackService');
-const logsService = require('./services/chatbot/logsService');
-const dataCache = require('./services/chatbot/dataCache');
-const userActivityLogger = require('./services/logging/userActivityLogger');
+// VERSION: v2.9.2 | DATE: 2025-01-27 | AUTHOR: Lucas Gravina - VeloHub Development Team
+let aiService, searchService, sessionService, feedbackService, logsService, dataCache, userActivityLogger;
+
+try {
+  aiService = require('./services/chatbot/aiService');
+  searchService = require('./services/chatbot/searchService');
+  sessionService = require('./services/chatbot/sessionService');
+  feedbackService = require('./services/chatbot/feedbackService');
+  logsService = require('./services/chatbot/logsService');
+  dataCache = require('./services/chatbot/dataCache');
+  userActivityLogger = require('./services/logging/userActivityLogger');
+  console.log('✅ Todos os serviços carregados com sucesso');
+} catch (error) {
+  console.error('❌ Erro ao carregar serviços:', error.message);
+  console.error('Stack:', error.stack);
+  process.exit(1);
+}
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -1674,6 +1683,10 @@ app.get('*', (req, res) => {
 });
 
 // Iniciar servidor
+console.log('🔄 Iniciando servidor...');
+console.log(`📍 Porta configurada: ${PORT}`);
+console.log(`🌍 Ambiente: ${process.env.NODE_ENV || 'development'}`);
+
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Servidor backend rodando na porta ${PORT}`);
   console.log(`🌐 Acessível em: http://localhost:${PORT}`);
@@ -1685,6 +1698,11 @@ app.listen(PORT, '0.0.0.0', () => {
   connectToMongo().catch(error => {
     console.warn('⚠️ MongoDB: Falha na conexão inicial, tentando reconectar...', error.message);
   });
+});
+
+// Log de erro se o servidor não conseguir iniciar
+app.on('error', (error) => {
+  console.error('❌ Erro no servidor:', error);
 });
 
 // Tratamento de erros não capturados
