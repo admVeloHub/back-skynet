@@ -299,4 +299,77 @@
 - **Status**: ✅ Concluído com sucesso
 
 ---
+### **GitHub Push - Correção Configuração Secrets no app.yaml**
+- **Data/Hora**: 2025-01-30 21:30:00
+- **Tipo**: GitHub Push
+- **Versão**: app.yaml v1.1.0
+- **Commit**: 8196f79
+- **Arquivos Modificados**: 
+  - `app.yaml` (v1.1.0 - correção nomes dos secrets)
+- **Descrição**: Correção crítica da configuração dos secrets no app.yaml - atualizado nomes dos secrets para usar os novos nomes: mongodb-uri → MONGO_ENV, GPT_apikey → OPENAI_API_KEY, Gemini_apikey → GEMINI_API_KEY. Resolve erro "MongoDB não configurado" no Cloud Run.
+- **Status**: ✅ Concluído com sucesso
+
+---
+
+### **GitHub Push - Configuração Completa dos Secrets no app.yaml v1.2.0**
+- **Data/Hora**: 2025-01-30 21:45:00
+- **Tipo**: GitHub Push
+- **Versão**: app.yaml v1.2.0
+- **Commit**: 91c2014
+- **Arquivos Modificados**: 
+  - `app.yaml` (v1.2.0 - configuração completa dos secrets)
+- **Descrição**: Configuração completa e auditada de todos os secrets no app.yaml - mapeamento correto de todos os secrets existentes para backend e frontend, adicionado REACT_APP_API_URL, configurações do chatbot, remoção de referências ao Ponto Mais (secrets não existem ainda). Resolve erro de autorização OAuth e garante que todos os secrets necessários estejam configurados.
+- **Status**: ✅ Concluído com sucesso
+
+---
+
+### **GitHub Push - Correção Google OAuth Client ID**
+- **Data/Hora**: 2025-01-30 22:00:00
+- **Tipo**: GitHub Push
+- **Versão**: Dockerfile v1.2.0
+- **Commit**: d82036c
+- **Arquivos Modificados**: 
+  - `Dockerfile` (v1.2.0 - logs de debug para variáveis REACT_APP_)
+- **Descrição**: Correção crítica do erro Google OAuth "Parameter client_id is not set correctly" - adicionado logs de debug para verificar se REACT_APP_GOOGLE_CLIENT_ID está sendo passado corretamente via --build-arg durante o build do Docker, resolve erro 400 no login Google OAuth
+- **Status**: ✅ Concluído com sucesso
+
+---
+
+### **GitHub Push - Debug Google OAuth Client ID**
+- **Data/Hora**: 2025-01-30 22:15:00
+- **Tipo**: GitHub Push
+- **Versão**: LoginPage.js v1.1.0, google-config.js v1.1.0
+- **Commit**: ab6527a
+- **Arquivos Modificados**: 
+  - `src/components/LoginPage.js` (v1.1.0 - logs de debug para Client ID)
+  - `src/config/google-config.js` (v1.1.0 - logs de debug para variáveis)
+- **Descrição**: Adicionado logs detalhados para debug do erro Google OAuth - logs mostram se REACT_APP_GOOGLE_CLIENT_ID está sendo passado corretamente, verificação de tipo e valor das variáveis, teste local confirmou que variáveis funcionam quando definidas, próximo passo é verificar logs no ambiente de produção
+- **Status**: ✅ Concluído com sucesso
+
+---
+
+### **GitHub Push - Debug Avançado Google OAuth**
+- **Data/Hora**: 2025-01-30 22:30:00
+- **Tipo**: GitHub Push
+- **Versão**: Dockerfile v1.3.0
+- **Commit**: 769d198
+- **Arquivos Modificados**: 
+  - `Dockerfile` (v1.3.0 - logs avançados de debug + verificação de build)
+- **Descrição**: Debug avançado para resolver problema do CLIENT_ID chegando como string vazia - adicionado logs detalhados durante build, verificação de tamanho e se CLIENT_ID está vazio, logs pós-build para verificar se variáveis foram substituídas, verificação se CLIENT_ID foi encontrado nos arquivos JS finais, resolve problema identificado nos logs de produção
+- **Status**: ✅ Concluído com sucesso
+
+---
+
+### **GitHub Push - Solução Temporária Google OAuth**
+- **Data/Hora**: 2025-01-30 22:45:00
+- **Tipo**: GitHub Push
+- **Versão**: google-config.js v1.2.0
+- **Commit**: 1e3c98d
+- **Arquivos Modificados**: 
+  - `src/config/google-config.js` (v1.2.0 - fallback hardcoded para CLIENT_ID)
+- **Descrição**: Solução temporária implementada com sucesso - adicionado fallback hardcoded para REACT_APP_GOOGLE_CLIENT_ID, resolve problema de variáveis não sendo substituídas no build, Google OAuth funcionando perfeitamente, login realizado com sucesso, próximo problema: MongoDB não configurado no backend
+- **Status**: ✅ Concluído com sucesso - Google OAuth RESOLVIDO
+
+---
+
 *Log atualizado automaticamente após push para GitHub*

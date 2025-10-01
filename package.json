@@ -1,16 +1,76 @@
 {
-  "name": "velohub-secret-test",
-  "version": "1.0.0",
-  "description": "Teste de isolamento para verificar acesso ao Secret Manager",
-  "type": "module",
-  "main": "test-secret.js",
-  "scripts": {
-    "start": "node test-secret.js",
-    "test": "node test-secret.js"
+  "name": "velohub",
+  "version": "3.0.0",
+  "private": true,
+  "_versionInfo": {
+    "version": "v3.0.0",
+    "date": "2025-01-29",
+    "author": "VeloHub Development Team"
   },
   "dependencies": {
-    "@google-cloud/secret-manager": "^5.0.0"
+    "autoprefixer": "^10.4.14",
+    "cors": "^2.8.5",
+    "csv-parser": "^3.2.0",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "lucide-react": "^0.263.1",
+    "mongodb": "^5.9.2",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.8.0",
+    "react-scripts": "5.0.1",
+    "tailwindcss": "^3.3.0"
   },
-  "author": "Lucas Gravina - VeloHub Development Team",
-  "license": "MIT"
+  "devDependencies": {
+    "@types/react": "^18.0.28",
+    "@types/react-dom": "^18.0.11",
+    "typescript": "^4.9.5"
+  },
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject",
+    "backend": "cd backend && npm start",
+    "backend:dev": "cd backend && npm run dev",
+    "test:config": "node test-config.js",
+    "lint": "eslint src/ --ext .js,.jsx",
+    "lint:fix": "eslint src/ --ext .js,.jsx --fix"
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "overrides": {
+    "typescript": "^4.9.5"
+  },
+  "description": "VeloHub V3 - Portal de Processos Inteligente com Chatbot IA",
+  "keywords": [
+    "velohub",
+    "chatbot",
+    "react",
+    "mongodb",
+    "google-cloud",
+    "ai",
+    "portal",
+    "processos"
+  ],
+  "author": "VeloHub Development Team",
+  "license": "UNLICENSED",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/velohub/velohub-v3.git"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  }
 }
