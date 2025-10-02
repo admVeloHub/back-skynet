@@ -11,7 +11,7 @@ env_variables:
   PORT: 8080
   
   # MongoDB - URI completa (via Secret Manager)
-  MONGO_ENV: ${MONGODB_ENV}
+  MONGO_ENV: ${MONGO_ENV}
   
   # Google OAuth - Credenciais (via Secret Manager)
   GOOGLE_CLIENT_ID: ${google-client-id}
