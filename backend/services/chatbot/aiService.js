@@ -1,6 +1,6 @@
 // AI Service - Integração híbrida com IA para respostas inteligentes
 // VERSION: v2.5.0 | DATE: 2024-12-19 | AUTHOR: VeloHub Development Team
-// VERSION: v2.6.3 | DATE: 2025-01-10 | AUTHOR: Lucas Gravina - VeloHub Development Team
+// VERSION: v2.6.4 | DATE: 2025-01-10 | AUTHOR: Lucas Gravina - VeloHub Development Team
 // VERSION: v2.7.0 | DATE: 2025-01-30 | AUTHOR: Lucas Gravina - VeloHub Development Team
 // VERSION: v2.7.1 | DATE: 2025-01-30 | AUTHOR: Lucas Gravina - VeloHub Development Team
 // OTIMIZAÇÃO: Handshake inteligente com ping HTTP + TTL 3min + testes paralelos
@@ -303,11 +303,11 @@ ${relevantKeywords}${context}
 Analise a pergunta do usuário e identifique qual(is) opção(ões) se aplica(m):
 
 **CRITÉRIOS:**
-- Se houver APENAS 1 opção que responde EXATAMENTE a pergunta: retorne apenas esse número
-- Se houver MÚLTIPLAS opções que podem responder a pergunta: retorne todos os números separados por vírgula
-- Se NENHUMA opção se aplica claramente: responda NENHUM
+- Se houver 1 opção que responde bem a pergunta: retorne apenas esse número
+- Se houver múltiplas opções que podem responder a pergunta: retorne todos os números separados por vírgula
+- Se NENHUMA opção se aplica: responda NENHUM
 
-**IMPORTANTE:** Seja rigoroso. Só retorne múltiplas opções se realmente houver ambiguidade na pergunta.
+**IMPORTANTE:** Seja prático. Se a pergunta pode ser respondida por uma das opções, inclua-a.
 
 ## RESPOSTA:`;
   }
