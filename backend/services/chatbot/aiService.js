@@ -1,6 +1,9 @@
 // AI Service - Integração híbrida com IA para respostas inteligentes
 // VERSION: v2.5.0 | DATE: 2024-12-19 | AUTHOR: VeloHub Development Team
 // VERSION: v2.6.1 | DATE: 2025-01-27 | AUTHOR: Lucas Gravina - VeloHub Development Team
+// VERSION: v2.7.0 | DATE: 2025-01-30 | AUTHOR: Lucas Gravina - VeloHub Development Team
+// VERSION: v2.7.1 | DATE: 2025-01-30 | AUTHOR: Lucas Gravina - VeloHub Development Team
+// OTIMIZAÇÃO: Handshake inteligente com ping HTTP + TTL 3min + testes paralelos
 const { OpenAI } = require('openai');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const config = require('../../config');
@@ -12,11 +15,11 @@ class AIService {
     this.openaiModel = "gpt-4o-mini"; // Modelo OpenAI (primário)
     this.geminiModel = "gemini-2.5-pro"; // Modelo Gemini (fallback)
     
-    // Cache de status das IAs (TTL 5min)
+    // Cache de status das IAs (TTL 3min - OTIMIZADO)
     this.statusCache = {
       data: null,
       timestamp: null,
-      ttl: 5 * 60 * 1000 // 5 minutos em ms
+      ttl: 3 * 60 * 1000 // 3 minutos em ms (otimizado)
     };
   }
 
@@ -653,7 +656,148 @@ ${sessionHistory.length > 0 ?
   }
 
   /**
-   * Testa a conexão com as APIs de IA (com cache)
+   * Ping HTTP para OpenAI (OTIMIZADO)
+   * @returns {Promise<boolean>} Status da conexão
+   */
+  async _pingOpenAI() {
+    if (!this.isOpenAIConfigured()) return false;
+    
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2000); // 2s timeout
+      
+      const response = await fetch('https://api.openai.com/v1/models', {
+        method: 'HEAD',
+        headers: { 
+          'Authorization': `Bearer ${config.OPENAI_API_KEY}`,
+          'User-Agent': 'VeloHub-Bot/1.0'
+        },
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      const isAvailable = response.ok;
+      
+      if (isAvailable) {
+        console.log('✅ OpenAI: Ping HTTP bem-sucedido');
+      } else {
+        console.warn(`⚠️ OpenAI: Ping HTTP falhou - Status: ${response.status}`);
+      }
+      
+      return isAvailable;
+    } catch (error) {
+      if (error.name === 'AbortError') {
+        console.warn('⚠️ OpenAI: Ping HTTP timeout (2s)');
+      } else {
+        console.warn('⚠️ OpenAI: Ping HTTP failed:', error.message);
+      }
+      return false;
+    }
+  }
+
+  /**
+   * Ping HTTP para Gemini (OTIMIZADO)
+   * @returns {Promise<boolean>} Status da conexão
+   */
+  async _pingGemini() {
+    if (!this.isGeminiConfigured()) return false;
+    
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2000); // 2s timeout
+      
+      const response = await fetch('https://generativelanguage.googleapis.com/v1/models', {
+        method: 'HEAD',
+        headers: { 
+          'x-goog-api-key': config.GEMINI_API_KEY,
+          'User-Agent': 'VeloHub-Bot/1.0'
+        },
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      const isAvailable = response.ok;
+      
+      if (isAvailable) {
+        console.log('✅ Gemini: Ping HTTP bem-sucedido');
+      } else {
+        console.warn(`⚠️ Gemini: Ping HTTP falhou - Status: ${response.status}`);
+      }
+      
+      return isAvailable;
+    } catch (error) {
+      if (error.name === 'AbortError') {
+        console.warn('⚠️ Gemini: Ping HTTP timeout (2s)');
+      } else {
+        console.warn('⚠️ Gemini: Ping HTTP failed:', error.message);
+      }
+      return false;
+    }
+  }
+
+  /**
+   * Teste inteligente de conexão com APIs de IA (OTIMIZADO)
+   * @returns {Promise<Object>} Status das conexões
+   */
+  async testConnectionIntelligent() {
+    // Verificar cache primeiro (TTL 3min)
+    if (this._isCacheValid()) {
+      console.log('✅ AI Service: Usando cache de status das IAs (TTL 3min)');
+      return this.statusCache.data;
+    }
+    
+    console.log('🔍 AI Service: Testando conexões das IAs (ping HTTP inteligente)');
+    const startTime = Date.now();
+    
+    const results = {
+      openai: { available: false, model: this.openaiModel, priority: 'primary' },
+      gemini: { available: false, model: this.geminiModel, priority: 'fallback' },
+      anyAvailable: false
+    };
+
+    // Teste PARALELO com ping HTTP (OTIMIZADO)
+    try {
+      const [openaiResult, geminiResult] = await Promise.allSettled([
+        this._pingOpenAI(),
+        this._pingGemini()
+      ]);
+
+      // Processar resultados
+      results.openai.available = openaiResult.status === 'fulfilled' && openaiResult.value;
+      results.gemini.available = geminiResult.status === 'fulfilled' && geminiResult.value;
+      results.anyAvailable = results.openai.available || results.gemini.available;
+      
+      const endTime = Date.now();
+      const duration = endTime - startTime;
+      
+      console.log(`⚡ AI Service: Handshake inteligente concluído em ${duration}ms`);
+      
+    } catch (error) {
+      console.error('❌ AI Service: Erro no handshake inteligente:', error.message);
+    }
+    
+    // Atualizar cache (TTL 3min)
+    this.statusCache.data = results;
+    this.statusCache.timestamp = Date.now();
+    
+    // Logs assertivos sobre o resultado
+    if (results.anyAvailable) {
+      const primaryAI = results.openai.available ? 'OpenAI' : 'Gemini';
+      const fallbackAI = results.openai.available && results.gemini.available ? 'Gemini' : 
+                        results.gemini.available && results.openai.available ? 'OpenAI' : null;
+      
+      console.log(`✅ AI Service: Cache atualizado (TTL 3min) - Primária: ${primaryAI}${fallbackAI ? `, Fallback: ${fallbackAI}` : ''}`);
+    } else {
+      console.error('❌ AI Service: NENHUMA API DE IA DISPONÍVEL - Verificar configuração das chaves');
+      console.error('❌ AI Service: OpenAI configurado:', this.isOpenAIConfigured());
+      console.error('❌ AI Service: Gemini configurado:', this.isGeminiConfigured());
+    }
+
+    return results;
+  }
+
+  /**
+   * Testa a conexão com as APIs de IA (MÉTODO LEGADO - MANTIDO PARA COMPATIBILIDADE)
    * @returns {Promise<Object>} Status das conexões
    */
   async testConnection() {

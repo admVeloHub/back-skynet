@@ -1,6 +1,6 @@
 /**
  * VeloHub V3 - Backend Server
- * VERSION: v2.16.0 | DATE: 2024-12-19 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.17.0 | DATE: 2024-12-19 | AUTHOR: VeloHub Development Team
  */
 
 // LOG DE DIAGNÓSTICO #1: Identificar a versão do código
@@ -677,6 +677,344 @@ function filterByKeywords(question, botPerguntasData) {
 // ===== FUNÇÕES AUXILIARES =====
 
 /**
+ * Aplica filtro otimizado nos campos palavrasChave e sinonimos (PONTO 1)
+ * @param {string} question - Pergunta do usuário
+ * @returns {Promise<Object>} Resultados filtrados
+ */
+const applyOptimizedFilter = async (question) => {
+  try {
+    console.log('🔍 PONTO 1: Iniciando filtro com índices MongoDB...');
+    const startTime = Date.now();
+    
+    // 1. TENTAR FILTRO COM ÍNDICES PRIMEIRO
+    try {
+      const client = await connectToMongo();
+      const db = client.db('console_conteudo');
+      
+      // Filtro com índices MongoDB ($text search)
+      const [filteredBotPerguntas, filteredArticles] = await Promise.all([
+        filterByKeywordsWithIndexes(question, db),
+        filterArticlesWithIndexes(question, db)
+      ]);
+      
+      const endTime = Date.now();
+      const duration = endTime - startTime;
+      
+      console.log(`⚡ PONTO 1: Filtro com índices concluído em ${duration}ms`);
+      console.log(`📊 PONTO 1: Resultados - Bot_perguntas: ${filteredBotPerguntas.length}, Artigos: ${filteredArticles.length}`);
+      
+      return {
+        botPerguntas: filteredBotPerguntas,
+        articles: filteredArticles,
+        duration: duration,
+        method: 'indexes'
+      };
+      
+    } catch (indexError) {
+      console.warn('⚠️ PONTO 1: Erro no filtro com índices, usando fallback:', indexError.message);
+      
+      // 2. FALLBACK PARA FILTRO MANUAL
+      let botPerguntasData = dataCache.getBotPerguntasData();
+      let articlesData = dataCache.getArticlesData();
+      
+      // Se cache inválido, carregar do MongoDB
+      if (!botPerguntasData || !articlesData) {
+        console.log('⚠️ PONTO 1: Cache inválido, carregando do MongoDB...');
+        
+        const client = await connectToMongo();
+        const db = client.db('console_conteudo');
+        const botPerguntasCollection = db.collection('Bot_perguntas');
+        const articlesCollection = db.collection('Artigos');
+        
+        [botPerguntasData, articlesData] = await Promise.all([
+          botPerguntasCollection.find({}).toArray(),
+          articlesCollection.find({}).toArray()
+        ]);
+        
+        // Atualizar cache
+        dataCache.updateBotPerguntas(botPerguntasData);
+        dataCache.updateArticles(articlesData);
+        
+        console.log(`📦 PONTO 1: Cache atualizado - Bot_perguntas: ${botPerguntasData.length}, Artigos: ${articlesData.length}`);
+      } else {
+        console.log('✅ PONTO 1: Usando dados do cache');
+      }
+
+      // Filtro manual (fallback)
+      const filteredBotPerguntas = filterByKeywordsOptimized(question, botPerguntasData);
+      const filteredArticles = filterArticlesOptimized(question, articlesData);
+      
+      const endTime = Date.now();
+      const duration = endTime - startTime;
+      
+      console.log(`⚡ PONTO 1: Filtro manual (fallback) concluído em ${duration}ms`);
+      console.log(`📊 PONTO 1: Resultados - Bot_perguntas: ${filteredBotPerguntas.length}/${botPerguntasData.length}, Artigos: ${filteredArticles.length}/${articlesData.length}`);
+      
+      return {
+        botPerguntas: filteredBotPerguntas,
+        articles: filteredArticles,
+        duration: duration,
+        method: 'fallback'
+      };
+    }
+    
+  } catch (error) {
+    console.error('❌ PONTO 1: Erro no filtro otimizado:', error.message);
+    return {
+      botPerguntas: [],
+      articles: [],
+      duration: 0,
+      error: error.message,
+      method: 'error'
+    };
+  }
+};
+
+/**
+ * Filtro com índices MongoDB para Bot_perguntas (PONTO 1 - OTIMIZADO)
+ * @param {string} question - Pergunta do usuário
+ * @param {Object} db - Database MongoDB
+ * @returns {Array} Perguntas filtradas
+ */
+const filterByKeywordsWithIndexes = async (question, db) => {
+  try {
+    const collection = db.collection('Bot_perguntas');
+    
+    // Query otimizada com $text search
+    const results = await collection.find({
+      $text: { $search: question }
+    }, {
+      score: { $meta: "textScore" }
+    })
+    .sort({ score: { $meta: "textScore" } })
+    .limit(30)
+    .toArray();
+    
+    // Adicionar relevanceScore baseado no score do MongoDB
+    return results.map(item => ({
+      ...item,
+      relevanceScore: item.score || 0
+    }));
+    
+  } catch (error) {
+    console.error('❌ Erro no filtro com índices Bot_perguntas:', error.message);
+    throw error;
+  }
+};
+
+/**
+ * Filtro com índices MongoDB para Artigos (PONTO 1 - OTIMIZADO)
+ * @param {string} question - Pergunta do usuário
+ * @param {Object} db - Database MongoDB
+ * @returns {Array} Artigos filtrados
+ */
+const filterArticlesWithIndexes = async (question, db) => {
+  try {
+    const collection = db.collection('Artigos');
+    
+    // Query otimizada com $text search
+    const results = await collection.find({
+      $text: { $search: question }
+    }, {
+      score: { $meta: "textScore" }
+    })
+    .sort({ score: { $meta: "textScore" } })
+    .limit(10)
+    .toArray();
+    
+    // Adicionar relevanceScore baseado no score do MongoDB
+    return results.map(item => ({
+      ...item,
+      relevanceScore: item.score || 0
+    }));
+    
+  } catch (error) {
+    console.error('❌ Erro no filtro com índices Artigos:', error.message);
+    throw error;
+  }
+};
+
+/**
+ * Filtro otimizado por keywords/sinônimos (PONTO 1 - FALLBACK)
+ * @param {string} question - Pergunta do usuário
+ * @param {Array} botPerguntasData - Dados do Bot_perguntas
+ * @returns {Array} Perguntas filtradas
+ */
+const filterByKeywordsOptimized = (question, botPerguntasData) => {
+  if (!question || !botPerguntasData || botPerguntasData.length === 0) {
+    return [];
+  }
+
+  const questionWords = question.toLowerCase().split(/\s+/).filter(word => word.length > 2);
+  const filtered = [];
+
+  for (const item of botPerguntasData) {
+    let score = 0;
+    
+    // Verificar palavras-chave
+    if (item.palavrasChave && Array.isArray(item.palavrasChave)) {
+      for (const keyword of item.palavrasChave) {
+        if (questionWords.some(word => keyword.toLowerCase().includes(word) || word.includes(keyword.toLowerCase()))) {
+          score += 2; // Peso maior para palavras-chave
+        }
+      }
+    }
+    
+    // Verificar sinônimos
+    if (item.sinonimos && Array.isArray(item.sinonimos)) {
+      for (const synonym of item.sinonimos) {
+        if (questionWords.some(word => synonym.toLowerCase().includes(word) || word.includes(synonym.toLowerCase()))) {
+          score += 1; // Peso menor para sinônimos
+        }
+      }
+    }
+    
+    // Verificar na pergunta
+    if (item.pergunta) {
+      const perguntaWords = item.pergunta.toLowerCase().split(/\s+/);
+      for (const word of questionWords) {
+        if (perguntaWords.some(pWord => pWord.includes(word) || word.includes(pWord))) {
+          score += 1;
+        }
+      }
+    }
+    
+    if (score > 0) {
+      filtered.push({
+        ...item,
+        relevanceScore: score
+      });
+    }
+  }
+
+  // Ordenar por score e retornar top 30
+  return filtered
+    .sort((a, b) => b.relevanceScore - a.relevanceScore)
+    .slice(0, 30);
+};
+
+/**
+ * Filtro otimizado para artigos (PONTO 1)
+ * @param {string} question - Pergunta do usuário
+ * @param {Array} articlesData - Dados dos artigos
+ * @returns {Array} Artigos filtrados
+ */
+const filterArticlesOptimized = (question, articlesData) => {
+  if (!question || !articlesData || articlesData.length === 0) {
+    return [];
+  }
+
+  const questionWords = question.toLowerCase().split(/\s+/).filter(word => word.length > 2);
+  const filtered = [];
+
+  for (const article of articlesData) {
+    let score = 0;
+    
+    // Verificar no título
+    if (article.title) {
+      const titleWords = article.title.toLowerCase().split(/\s+/);
+      for (const word of questionWords) {
+        if (titleWords.some(tWord => tWord.includes(word) || word.includes(tWord))) {
+          score += 2;
+        }
+      }
+    }
+    
+    // Verificar no conteúdo
+    if (article.content) {
+      const contentWords = article.content.toLowerCase().split(/\s+/);
+      for (const word of questionWords) {
+        if (contentWords.some(cWord => cWord.includes(word) || word.includes(cWord))) {
+          score += 1;
+        }
+      }
+    }
+    
+    if (score > 0) {
+      filtered.push({
+        ...article,
+        relevanceScore: score
+      });
+    }
+  }
+
+  // Ordenar por score e retornar top 10
+  return filtered
+    .sort((a, b) => b.relevanceScore - a.relevanceScore)
+    .slice(0, 10);
+};
+
+/**
+ * Gera resposta da IA otimizada (PONTO 1)
+ * @param {string} question - Pergunta do usuário
+ * @param {string} context - Contexto das perguntas e artigos filtrados
+ * @param {Array} sessionHistory - Histórico da sessão
+ * @param {string} userId - ID do usuário
+ * @param {string} sessionId - ID da sessão
+ * @returns {Promise<Object>} Resposta da IA
+ */
+const generateAIResponseOptimized = async (question, context, sessionHistory, userId, sessionId) => {
+  try {
+    console.log('🤖 PONTO 1: Gerando resposta da IA com contexto otimizado...');
+    
+    // Usar IA primária definida no handshake do Ponto 0 (TTL 3min)
+    const aiStatus = aiService.statusCache.data;
+    let primaryAI = 'OpenAI'; // Fallback padrão
+    
+    if (aiStatus && aiStatus.openai && aiStatus.openai.available) {
+      primaryAI = 'OpenAI';
+    } else if (aiStatus && aiStatus.gemini && aiStatus.gemini.available) {
+      primaryAI = 'Gemini';
+    }
+    
+    console.log(`🤖 PONTO 1: Usando IA primária do handshake: ${primaryAI}`);
+    
+    // Gerar resposta com contexto otimizado
+    const aiResult = await aiService.generateResponse(
+      question,
+      context,
+      sessionHistory,
+      userId,
+      userId,
+      null, // searchResults
+      'conversational',
+      primaryAI
+    );
+    
+    if (aiResult.success) {
+      console.log(`✅ PONTO 1: Resposta da IA gerada com sucesso (${aiResult.provider})`);
+      return {
+        success: true,
+        response: aiResult.response,
+        provider: aiResult.provider,
+        model: aiResult.model,
+        source: 'ai'
+      };
+    } else {
+      console.warn('⚠️ PONTO 1: IA falhou, usando fallback');
+      return {
+        success: false,
+        response: 'Desculpe, não consegui processar sua pergunta no momento. Tente novamente.',
+        provider: 'fallback',
+        model: null,
+        source: 'fallback'
+      };
+    }
+    
+  } catch (error) {
+    console.error('❌ PONTO 1: Erro na geração da resposta da IA:', error.message);
+    return {
+      success: false,
+      response: 'Desculpe, ocorreu um erro ao processar sua pergunta. Tente novamente.',
+      provider: 'error',
+      model: null,
+      source: 'error',
+      error: error.message
+    };
+  }
+};
+
+/**
  * Carrega dados do Bot_perguntas do MongoDB
  * @returns {Promise<Array>} Dados do Bot_perguntas
  */
@@ -737,23 +1075,34 @@ app.get('/api/chatbot/init', async (req, res) => {
     const session = sessionService.getOrCreateSession(cleanUserId, null);
     console.log(`✅ VeloBot Init: Sessão criada/obtida: ${session.id}`);
     
-    // 2. CARGA DO CACHE DO BOT_PERGUNTAS DO MONGODB
+    // 2. CARGA DO CACHE DO BOT_PERGUNTAS DO MONGODB (OTIMIZADO)
     console.log('📦 VeloBot Init: Carregando dados MongoDB no cache...');
     try {
-      const botPerguntasData = await getBotPerguntasData();
-      const articlesData = await getArticlesData();
-      
-      // Atualizar cache
-      dataCache.updateBotPerguntas(botPerguntasData);
-      dataCache.updateArticles(articlesData);
-      
-      console.log(`✅ VeloBot Init: Cache atualizado - Bot_perguntas: ${botPerguntasData.length}, Artigos: ${articlesData.length}`);
+      // Verificar se cache precisa ser recarregado
+      if (dataCache.needsReload()) {
+        console.log('🔄 VeloBot Init: Cache expirado, recarregando do MongoDB...');
+        
+        const [botPerguntasData, articlesData] = await Promise.all([
+          getBotPerguntasData(),
+          getArticlesData()
+        ]);
+        
+        // Atualizar cache
+        dataCache.updateBotPerguntas(botPerguntasData);
+        dataCache.updateArticles(articlesData);
+        
+        console.log(`✅ VeloBot Init: Cache atualizado - Bot_perguntas: ${botPerguntasData.length}, Artigos: ${articlesData.length}`);
+      } else {
+        console.log('✅ VeloBot Init: Cache válido, usando dados existentes');
+        const cacheStatus = dataCache.getCacheStatus();
+        console.log(`📊 VeloBot Init: Cache status - Bot_perguntas: ${cacheStatus.botPerguntas.count} registros, Artigos: ${cacheStatus.articles.count} registros`);
+      }
     } catch (error) {
       console.error('❌ VeloBot Init: Erro ao carregar dados no cache:', error.message);
     }
     
-    // 3. HANDSHAKE PARA DETERMINAR IA PRIMÁRIA
-    const aiStatus = await aiService.testConnection();
+    // 3. HANDSHAKE INTELIGENTE PARA DETERMINAR IA PRIMÁRIA (OTIMIZADO)
+    const aiStatus = await aiService.testConnectionIntelligent();
     let primaryAI = null;
     let fallbackAI = null;
     
@@ -1043,7 +1392,7 @@ app.get('/api/chatbot/health-check', async (req, res) => {
   }
 });
 
-// API de Chat Inteligente - Simplificada
+// API de Chat Inteligente - PONTO 1 OTIMIZADO (Fundido com Ponto 2)
 app.post('/api/chatbot/ask', async (req, res) => {
   try {
     const { question, userId, sessionId } = req.body;
@@ -1067,7 +1416,7 @@ app.post('/api/chatbot/ask', async (req, res) => {
     const cleanUserId = userId.trim();
     const cleanSessionId = sessionId || null;
 
-    console.log(`🤖 Chat V2: Nova pergunta de ${cleanUserId}: "${cleanQuestion}"`);
+    console.log(`🤖 PONTO 1: Nova pergunta de ${cleanUserId}: "${cleanQuestion}"`);
 
     // Obter sessão para memória de conversa (10 minutos)
     const session = sessionService.getOrCreateSession(cleanUserId, cleanSessionId);
@@ -1078,378 +1427,198 @@ app.post('/api/chatbot/ask', async (req, res) => {
       userId: cleanUserId
     });
 
-    // Log da atividade (MongoDB)
-    await userActivityLogger.logQuestion(cleanUserId, cleanQuestion, session.id);
-
-    // Buscar dados do MongoDB
-    const client = await connectToMongo();
-    const db = client.db('console_conteudo');
-    const botPerguntasCollection = db.collection('Bot_perguntas'); // Nome correto da coleção
-    const articlesCollection = db.collection('Artigos');
-
-    // Buscar Bot_perguntas e artigos em paralelo
-    // 1. TENTAR USAR CACHE PRIMEIRO
-    console.log('📦 Chat V2: Verificando cache do Bot_perguntas...');
-    let botPerguntasData = dataCache.getBotPerguntasData();
-    let articlesData = dataCache.getArticlesData();
+    // PONTO 1: FILTRO OTIMIZADO + LOG PARALELO
+    console.log('🔍 PONTO 1: Aplicando filtro nos campos palavrasChave e sinonimos...');
     
-    console.log('📦 Chat V2: Cache status - Bot_perguntas:', !!botPerguntasData, 'Artigos:', !!articlesData);
+    // Executar filtro e log em paralelo
+    const [filteredResults, logResult] = await Promise.allSettled([
+      // Filtro otimizado nos campos palavrasChave e sinonimos
+      applyOptimizedFilter(cleanQuestion),
+      // Log da atividade (MongoDB) em paralelo
+      userActivityLogger.logQuestion(cleanUserId, cleanQuestion, session.id)
+    ]);
+
+    // Processar resultados do filtro
+    let botPerguntasData = [];
+    let articlesData = [];
     
-    // Se cache inválido, carregar do MongoDB
-    if (!botPerguntasData || !articlesData) {
-      console.log('⚠️ Chat V2: Cache inválido, carregando do MongoDB...');
-      console.log('📦 Chat V2: Carregando Bot_perguntas da collection...');
-      
-      [botPerguntasData, articlesData] = await Promise.all([
-        botPerguntasCollection.find({}).toArray(),
-        articlesCollection.find({}).toArray()
-      ]);
-      
-      console.log(`📦 Chat V2: MongoDB - Bot_perguntas: ${botPerguntasData.length}, Artigos: ${articlesData.length}`);
-      
-      // Atualizar cache
-      dataCache.updateBotPerguntas(botPerguntasData);
-      dataCache.updateArticles(articlesData);
-      
-      console.log('✅ Chat V2: Cache atualizado com dados do MongoDB');
+    if (filteredResults.status === 'fulfilled') {
+      botPerguntasData = filteredResults.value.botPerguntas || [];
+      articlesData = filteredResults.value.articles || [];
+      console.log(`✅ PONTO 1: Filtro aplicado - ${botPerguntasData.length} perguntas relevantes, ${articlesData.length} artigos`);
     } else {
-      console.log('✅ Chat V2: Usando dados do cache');
+      console.error('❌ PONTO 1: Erro no filtro:', filteredResults.reason);
     }
 
-    console.log(`📋 Chat V2: ${botPerguntasData.length} perguntas do Bot_perguntas e ${articlesData.length} artigos carregados`);
-
-    // FILTRO MONGODB por keywords/sinônimos
-    const filteredBotPerguntas = filterByKeywords(cleanQuestion, botPerguntasData);
-    console.log(`🔍 Chat V2: Filtro aplicado - ${filteredBotPerguntas.length} perguntas relevantes (de ${botPerguntasData.length})`);
-
-    // PONTO 3: CHAMADA DE IA PRIMÁRIA
-    let aiResponse = null;
-    let searchResults = null;
-    
-    if (aiService.isConfigured()) {
-      console.log(`🤖 Chat V2: PONTO 3 - Chamada de IA primária para: "${cleanQuestion}"`);
-      console.log(`🔍 Chat V2: Perguntas localizadas na base: ${botPerguntasData.length}, Filtradas: ${filteredBotPerguntas.length}`);
-      console.log(`🔍 Chat V2: IA configurada - Gemini: ${aiService.isGeminiConfigured()}, OpenAI: ${aiService.isOpenAIConfigured()}`);
-      
-      // Obter histórico da sessão para contexto
-      const sessionHistory = sessionService.getSessionHistory(session.id);
-      
-      // Determinar IA primária baseada na disponibilidade
-      const aiStatus = await aiService.testConnection();
-      let primaryAI = null;
-      let fallbackAI = null;
-      
-      if (aiStatus.openai.available) {
-        primaryAI = 'OpenAI';
-        fallbackAI = aiStatus.gemini.available ? 'Gemini' : null;
-      } else if (aiStatus.gemini.available) {
-        primaryAI = 'Gemini';
-        fallbackAI = 'OpenAI';
-      } else {
-        primaryAI = 'OpenAI';
-        fallbackAI = null;
-      }
-      
-      // Tentar IA primária
-      const aiResult = await aiService.generateResponse(
-        cleanQuestion,
-        '', // context vazio para resposta direta
-        sessionHistory,
-        cleanUserId,
-        cleanUserId,
-        null, // searchResults
-        'conversational',
-        primaryAI
-      );
-      
-      if (aiResult.success) {
-        // IA primária funcionou - PONTO 4: Análise IA
-        console.log(`✅ Chat V2: IA primária funcionou - ${aiResult.provider}`);
-        
-        // PONTO 4: ANÁLISE IA (analyzeQuestionWithAI)
-        console.log(`🤖 Chat V2: PONTO 4 - Análise IA com dados filtrados`);
-        const aiAnalysis = await aiService.analyzeQuestionWithAI(cleanQuestion, filteredBotPerguntas, sessionHistory);
-        console.log(`🔍 Chat V2: PONTO 4 - Resultado da análise IA:`, JSON.stringify(aiAnalysis, null, 2));
-        
-        if (aiAnalysis.needsClarification) {
-          // IA identificou múltiplas opções relevantes - mostrar menu de esclarecimento
-          const clarificationMenu = searchService.generateClarificationMenuFromAI(aiAnalysis.relevantOptions, cleanQuestion);
-          
-
-          return res.json({
-            success: true,
-            data: {
-              ...clarificationMenu,
-              sessionId: session.id,
-              timestamp: new Date().toISOString()
-            }
-          });
-        } else if (aiAnalysis.bestMatch) {
-          // IA identificou uma opção específica - usar diretamente
-          console.log(`✅ Chat V2: IA identificou match específico: "${aiAnalysis.bestMatch.pergunta}"`);
-          
-          
-          return res.json({
-            success: true,
-            response: responseFormatter.formatCacheResponse(aiAnalysis.bestMatch.resposta || 'Resposta não encontrada', 'ai_analysis'),
-            source: 'Bot_perguntas',
-            sourceId: aiAnalysis.bestMatch._id,
-            sourceRow: aiAnalysis.bestMatch.pergunta,
-            sessionId: session.id,
-            timestamp: new Date().toISOString()
-          });
-        } else {
-          // IA não encontrou opções - usar resposta da IA primária
-          
-          return res.json({
-            success: true,
-            response: responseFormatter.formatAIResponse(aiResult.response, aiResult.provider),
-            source: 'ai',
-            aiProvider: aiResult.provider,
-            model: aiResult.model,
-            sessionId: session.id,
-            timestamp: new Date().toISOString()
-          });
-        }
-      } else if (fallbackAI) {
-        // IA primária falhou - tentar IA secundária
-        console.warn(`⚠️ Chat V2: IA primária (${primaryAI}) falhou, tentando IA secundária (${fallbackAI})`);
-        
-        const fallbackResult = await aiService.generateResponse(
-          cleanQuestion,
-          '',
-          sessionHistory,
-          cleanUserId,
-          cleanUserId,
-          null,
-          'conversational',
-          fallbackAI
-        );
-        
-        if (fallbackResult.success) {
-          // IA secundária funcionou - PONTO 4: Análise IA
-          console.log(`✅ Chat V2: IA secundária funcionou - ${fallbackResult.provider}`);
-          
-          // PONTO 4: ANÁLISE IA (analyzeQuestionWithAI)
-          console.log(`🤖 Chat V2: PONTO 4 - Análise IA com dados filtrados`);
-          const aiAnalysis = await aiService.analyzeQuestionWithAI(cleanQuestion, filteredBotPerguntas, sessionHistory);
-          console.log(`🔍 Chat V2: PONTO 4 - Resultado da análise IA:`, JSON.stringify(aiAnalysis, null, 2));
-          
-          if (aiAnalysis.needsClarification) {
-            // IA identificou múltiplas opções relevantes - mostrar menu de esclarecimento
-            const clarificationMenu = searchService.generateClarificationMenuFromAI(aiAnalysis.relevantOptions, cleanQuestion);
-            
-
-            return res.json({
-              success: true,
-              data: {
-                ...clarificationMenu,
-                sessionId: session.id,
-                timestamp: new Date().toISOString()
-              }
-            });
-          } else if (aiAnalysis.bestMatch) {
-            // IA identificou uma opção específica - usar diretamente
-            console.log(`✅ Chat V2: IA identificou match específico: "${aiAnalysis.bestMatch.pergunta}"`);
-            
-            
-            return res.json({
-              success: true,
-              response: responseFormatter.formatCacheResponse(aiAnalysis.bestMatch.resposta || 'Resposta não encontrada', 'ai_analysis'),
-              source: 'Bot_perguntas',
-              sourceId: aiAnalysis.bestMatch._id,
-              sourceRow: aiAnalysis.bestMatch.pergunta,
-              sessionId: session.id,
-              timestamp: new Date().toISOString()
-            });
-          } else {
-            // IA não encontrou opções - usar resposta da IA secundária
-            
-            return res.json({
-              success: true,
-              response: responseFormatter.formatAIResponse(fallbackResult.response, fallbackResult.provider),
-              source: 'ai',
-              aiProvider: fallbackResult.provider,
-              model: fallbackResult.model,
-              sessionId: session.id,
-              timestamp: new Date().toISOString()
-            });
-          }
-        }
-      }
-      
-      // Ambas IAs falharam - usar busca tradicional e ir direto para CLARIFICATION
-      console.warn('⚠️ Chat V2: Ambas IAs falharam, usando busca tradicional → CLARIFICATION');
-      searchResults = await searchService.hybridSearch(cleanQuestion, botPerguntasData, articlesData);
-      
+    // Processar resultado do log
+    if (logResult.status === 'fulfilled') {
+      console.log('✅ PONTO 1: Log enviado ao MongoDB em paralelo');
     } else {
-      // IA não configurada - usar busca tradicional
-      console.log(`⚠️ Chat V2: IA não configurada, usando busca tradicional`);
-      searchResults = await searchService.hybridSearch(cleanQuestion, botPerguntasData, articlesData);
+      console.warn('⚠️ PONTO 1: Erro no log MongoDB:', logResult.reason);
     }
-      
-    // Verificar se precisa de esclarecimento (sistema tradicional)
-    const clarificationResult = searchService.findMatchesWithDeduplication(cleanQuestion, botPerguntasData);
+
+    // PONTO 1: ENVIO PARA IA COM CONTEXTO RECENTE E PROMPT
+    console.log('🤖 PONTO 1: Enviando resultados do filtro, contexto recente e prompt para IA...');
     
-    if (clarificationResult.needsClarification) {
-      const clarificationMenu = searchService.generateClarificationMenu(clarificationResult.matches, cleanQuestion);
-      
-
-      return res.json({
-        success: true,
-        data: {
-          ...clarificationMenu,
-          sessionId: session.id,
-          timestamp: new Date().toISOString()
-        }
-      });
-    }
-
-    // Obter histórico da sessão
+    // Obter histórico da sessão para contexto
     const sessionHistory = sessionService.getSessionHistory(session.id);
-
-    // Construir contexto aprimorado
+    
+    // Construir contexto otimizado
     let context = '';
     
-    // Contexto do Bot_perguntas (estrutura MongoDB: Bot_perguntas)
-    if (searchResults.botPergunta) {
-      context += `Pergunta relevante encontrada:\nPergunta: ${searchResults.botPergunta.pergunta}\nResposta: ${searchResults.botPergunta.resposta}\n\n`;
+    // Adicionar contexto das perguntas filtradas
+    if (botPerguntasData.length > 0) {
+      context += 'Perguntas relevantes encontradas:\n';
+      botPerguntasData.slice(0, 5).forEach((item, index) => {
+        context += `${index + 1}. ${item.pergunta}\n   Resposta: ${item.resposta}\n\n`;
+      });
     }
     
-    // Contexto dos artigos
-    if (searchResults.articles.length > 0) {
-      context += `Artigos relacionados:\n`;
-      searchResults.articles.forEach(article => {
-        context += `- ${article.title}: ${article.content.substring(0, 200)}...\n`;
+    // Adicionar contexto dos artigos filtrados
+    if (articlesData.length > 0) {
+      context += 'Artigos relacionados:\n';
+      articlesData.slice(0, 3).forEach((article, index) => {
+        context += `${index + 1}. ${article.artigo_titulo}: ${article.artigo_conteudo.substring(0, 200)}...\n\n`;
       });
-      context += '\n';
     }
-
-    // Gerar resposta com IA (Gemini primário, OpenAI fallback)
-    let response;
-    let responseSource = 'fallback';
-    let aiProvider = null;
-
-    if (aiService.isConfigured()) {
+    
+    // PONTO 3: ANÁLISE DA IA PARA DETERMINAR AÇÃO
+    console.log('🤖 PONTO 3: IA analisando se há respostas válidas...');
+    
+    let aiAnalysis = null;
+    let needsClarification = false;
+    let clarificationMenu = null;
+    
+    // SEMPRE usar IA para analisar as opções disponíveis
+    if (botPerguntasData.length > 0) {
       try {
-        // Determinar IA primária baseada na disponibilidade (mesma lógica da inicialização)
-        const aiStatus = await aiService.testConnection();
-        let primaryAI = null;
+        aiAnalysis = await aiService.analyzeQuestionWithAI(cleanQuestion, botPerguntasData, sessionHistory);
+        console.log(`✅ PONTO 3: IA analisou ${botPerguntasData.length} opções`);
         
-        if (aiStatus.openai.available) {
-          // Cenário 1: OpenAI OK → OpenAI primária + Gemini secundária + pesquisa convencional fallback
-          primaryAI = 'OpenAI';
-        } else if (aiStatus.gemini.available) {
-          // Cenário 2: OpenAI NULL + Gemini OK → Gemini primária + OpenAI secundária + pesquisa convencional fallback
-          primaryAI = 'Gemini';
+        if (aiAnalysis.needsClarification && aiAnalysis.relevantOptions.length > 1) {
+          // CENÁRIO 2: IA considera múltiplas respostas cabíveis - clarification
+          needsClarification = true;
+          clarificationMenu = searchService.generateClarificationMenuFromAI(aiAnalysis.relevantOptions, cleanQuestion);
+          console.log(`🔍 PONTO 3: Clarification necessário - ${aiAnalysis.relevantOptions.length} opções relevantes`);
+        } else if (aiAnalysis.relevantOptions.length === 0) {
+          // CENÁRIO 3: IA não considera que nenhuma se aplique
+          console.log('❌ PONTO 3: IA determinou que nenhuma resposta se aplica');
         } else {
-          // Cenário 3: OpenAI NULL + Gemini NULL → Mantém primeira opção + pesquisa convencional fallback
-          primaryAI = 'OpenAI';
+          // CENÁRIO 1: IA considera 1 resposta perfeita
+          console.log('✅ PONTO 3: IA determinou 1 resposta perfeita');
         }
-        
-        const aiResult = await aiService.generateResponse(
-          cleanQuestion,
-          context,
-          sessionHistory,
-          cleanUserId,
-          cleanUserId,
-          null, // searchResults
-          'conversational', // formatType
-          primaryAI
-        );
-        
-        response = responseFormatter.formatAIResponse(aiResult.response, aiResult.provider);
-        responseSource = aiResult.success ? 'ai' : 'error';
-        aiProvider = aiResult.provider;
-        
-        console.log(`✅ Chat V2: Resposta gerada pela ${aiProvider} (${aiResult.model})`);
-        
-        // Log do uso da IA
-        if (logsService.isConfigured() && aiResult.success) {
-          await logsService.logAIResponse(cleanUserId, cleanQuestion, aiProvider);
-        }
-        
-      } catch (aiError) {
-        console.error('❌ Chat V2: Erro na IA:', aiError.message);
-        response = responseFormatter.formatFallbackResponse('Desculpe, não consegui processar sua pergunta no momento. Tente novamente.');
-        responseSource = 'error';
-        aiProvider = 'Error';
-        
-        // Log do erro
-        if (logsService.isConfigured()) {
-          await logsService.logNotFoundQuestion(cleanUserId, cleanQuestion);
-        }
+      } catch (error) {
+        console.warn('⚠️ PONTO 3: Erro na análise da IA, continuando sem análise:', error.message);
+        aiAnalysis = { relevantOptions: [], needsClarification: false };
       }
     } else {
-      // Fallback para Bot_perguntas se nenhuma IA estiver configurada
-      if (searchResults.botPergunta) {
-        response = responseFormatter.formatCacheResponse(searchResults.botPergunta.resposta || 'Resposta encontrada na base de conhecimento.', 'bot_perguntas');
+      // Nenhuma opção disponível
+      console.log('❌ PONTO 3: Nenhuma opção disponível para análise');
+      aiAnalysis = { relevantOptions: [], needsClarification: false };
+    }
+    
+    // CENÁRIO 2: Se precisa de esclarecimento, retornar menu
+    if (needsClarification && clarificationMenu) {
+      console.log('🔍 PONTO 3: Retornando menu de esclarecimento');
+      
+      const responseData = {
+        success: true,
+        messageId: `clarification_${Date.now()}`,
+        response: clarificationMenu.resposta,
+        source: 'clarification',
+        aiProvider: null,
+        sessionId: session.id,
+        clarificationMenu: {
+          options: clarificationMenu.options,
+          question: cleanQuestion
+        },
+        timestamp: new Date().toISOString()
+      };
+      
+      console.log(`✅ PONTO 3: Menu de esclarecimento enviado para ${cleanUserId}`);
+      return res.json(responseData);
+    }
+    
+    // CENÁRIO 3: Se IA não considera nenhuma resposta aplicável
+    if (aiAnalysis && aiAnalysis.relevantOptions.length === 0) {
+      console.log('❌ PONTO 3: Informando usuário que nenhuma resposta se aplica');
+      
+      const responseData = {
+        success: true,
+        messageId: `no_match_${Date.now()}`,
+        response: 'Não consegui encontrar uma resposta que se aplique exatamente à sua pergunta. Pode reformular ou fornecer mais detalhes para que eu possa ajudá-lo melhor?',
+        source: 'no_match',
+        aiProvider: null,
+        sessionId: session.id,
+        timestamp: new Date().toISOString()
+      };
+      
+      console.log(`✅ PONTO 3: Resposta "nenhuma se aplica" enviada para ${cleanUserId}`);
+      return res.json(responseData);
+    }
+    
+    // CENÁRIO 1: IA considera 1 resposta perfeita - continuar com resposta normal
+    console.log('🤖 PONTO 3: Gerando resposta da IA para resposta perfeita...');
+    
+    // Enviar para IA (sem log)
+    const aiResponse = await generateAIResponseOptimized(cleanQuestion, context, sessionHistory, cleanUserId, session.id);
+
+    // Processar resposta da IA
+    let finalResponse = '';
+    let responseSource = 'fallback';
+    let aiProvider = null;
+    
+    if (aiResponse.success) {
+      finalResponse = aiResponse.response;
+      responseSource = aiResponse.source;
+      aiProvider = aiResponse.provider;
+      console.log(`✅ PONTO 1: Resposta da IA processada com sucesso (${aiProvider})`);
+    } else {
+      // Fallback para resposta direta do Bot_perguntas se IA falhar
+      if (botPerguntasData.length > 0) {
+        finalResponse = botPerguntasData[0].resposta || 'Resposta encontrada na base de conhecimento.';
         responseSource = 'bot_perguntas';
-        console.log(`✅ Chat V2: Resposta do Bot_perguntas (IA não configurada)`);
-        
-        // Log da resposta do banco de dados
-        if (logsService.isConfigured()) {
-          await logsService.logMongoDBResponse(cleanUserId, cleanQuestion, searchResults.botPergunta._id);
-        }
+        console.log('✅ PONTO 1: Usando resposta direta do Bot_perguntas (fallback)');
       } else {
-        response = responseFormatter.formatFallbackResponse('Não consegui encontrar uma resposta precisa para sua pergunta. Pode fornecer mais detalhes ou reformular sua pergunta para que eu possa ajudá-lo melhor?');
+        finalResponse = 'Não consegui encontrar uma resposta precisa para sua pergunta. Pode fornecer mais detalhes?';
         responseSource = 'no_results';
-        console.log(`❌ Chat V2: Nenhuma resposta encontrada`);
-        
-        // Log da pergunta não encontrada
-        if (logsService.isConfigured()) {
-          await logsService.logNotFoundQuestion(cleanUserId, cleanQuestion);
-        }
+        console.log('❌ PONTO 1: Nenhuma resposta encontrada');
       }
     }
 
     // Adicionar resposta à sessão
-    const messageId = sessionService.addMessage(session.id, 'bot', response, {
+    const messageId = sessionService.addMessage(session.id, 'bot', finalResponse, {
       timestamp: new Date(),
       source: responseSource,
       aiProvider: aiProvider,
-      botPerguntaUsed: searchResults.botPergunta ? searchResults.botPergunta._id : null,
-      articlesUsed: searchResults.articles.map(a => a._id),
-      sitesUsed: false // Sites externos removidos
+      botPerguntaUsed: botPerguntasData.length > 0 ? botPerguntasData[0]._id : null,
+      articlesUsed: articlesData.slice(0, 3).map(a => a._id)
     });
 
-    // Preparar resposta para o frontend
+    // Preparar resposta final otimizada
     const responseData = {
       success: true,
       messageId: messageId,
-      response: response,
+      response: finalResponse,
       source: responseSource,
       aiProvider: aiProvider,
       sessionId: session.id,
-      articles: searchResults.articles.slice(0, 3).map(article => ({
+      articles: articlesData.slice(0, 3).map(article => ({
         id: article._id,
-        title: article.title,
-        content: article.content.substring(0, 150) + '...',
+        title: article.artigo_titulo,
+        content: article.artigo_conteudo.substring(0, 150) + '...',
         relevanceScore: article.relevanceScore
       })),
-      botPerguntaUsed: searchResults.botPergunta ? {
-        id: searchResults.botPergunta._id,
-        question: searchResults.botPergunta.pergunta,
-        answer: searchResults.botPergunta.resposta,
-        relevanceScore: searchResults.botPergunta.relevanceScore
+      botPerguntaUsed: botPerguntasData.length > 0 ? {
+        id: botPerguntasData[0]._id,
+        question: botPerguntasData[0].pergunta,
+        answer: botPerguntasData[0].resposta,
+        relevanceScore: botPerguntasData[0].relevanceScore
       } : null,
-      sitesUsed: false, // Sites externos removidos
       timestamp: new Date().toISOString()
     };
 
-    console.log(`✅ Chat V2: Resposta enviada para ${cleanUserId} (${responseSource}${aiProvider ? ` - ${aiProvider}` : ''})`);
-    
-    // Verificar se headers já foram enviados
-    if (res.headersSent) {
-      console.error('❌ CRÍTICO: Headers já foram enviados! Stack:', new Error().stack);
-      return;
-    }
-    
-    // Debug: Verificar se há caracteres especiais na resposta
-    const responseString = JSON.stringify(responseData);
-    console.log('🔍 Debug: Resposta JSON:', responseString.substring(0, 200) + '...');
-    console.log('🔍 Debug: Primeiros caracteres:', responseString.substring(0, 10).split('').map(c => c.charCodeAt(0)));
-    console.log('🔍 Debug: First byte hex:', Buffer.from(responseString)[0].toString(16));
+    console.log(`✅ PONTO 1: Resposta final enviada para ${cleanUserId} (${responseSource}${aiProvider ? ` - ${aiProvider}` : ''})`);
     
     res.json(responseData);
 

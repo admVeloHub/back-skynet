@@ -1,20 +1,22 @@
 // Data Cache Service - Cache inteligente para dados MongoDB
 // VERSION: v1.0.0 | DATE: 2025-09-29 | AUTHOR: Lucas Gravina - VeloHub Development Team
+// VERSION: v1.1.0 | DATE: 2025-01-30 | AUTHOR: Lucas Gravina - VeloHub Development Team
+// OTIMIZAÇÃO: TTL 3min + logs detalhados + métodos de invalidação
 
 class DataCache {
   constructor() {
-    // Cache para dados do Bot_perguntas
+    // Cache para dados do Bot_perguntas (OTIMIZADO)
     this.botPerguntasCache = {
       data: null,
       timestamp: null,
-      ttl: 10 * 60 * 1000 // 10 minutos em ms
+      ttl: 3 * 60 * 1000 // 3 minutos em ms (otimizado)
     };
     
-    // Cache para dados dos Artigos
+    // Cache para dados dos Artigos (OTIMIZADO)
     this.articlesCache = {
       data: null,
       timestamp: null,
-      ttl: 10 * 60 * 1000 // 10 minutos em ms
+      ttl: 3 * 60 * 1000 // 3 minutos em ms (otimizado)
     };
     
     console.log('📦 Data Cache: Serviço de cache inicializado');
@@ -63,7 +65,7 @@ class DataCache {
   }
 
   /**
-   * Atualiza cache de Bot_perguntas
+   * Atualiza cache de Bot_perguntas (OTIMIZADO)
    * @param {Array} data - Dados do Bot_perguntas
    */
   updateBotPerguntas(data) {
@@ -72,11 +74,13 @@ class DataCache {
       return;
     }
     
+    const now = Date.now();
     this.botPerguntasCache.data = data;
-    this.botPerguntasCache.timestamp = Date.now();
+    this.botPerguntasCache.timestamp = now;
     
-    console.log(`✅ Data Cache: Bot_perguntas atualizado - ${data.length} registros`);
+    console.log(`✅ Data Cache: Bot_perguntas atualizado - ${data.length} registros (TTL: 3min)`);
     console.log(`✅ Data Cache: Primeiro registro:`, data[0] ? Object.keys(data[0]) : 'Nenhum');
+    console.log(`✅ Data Cache: Cache válido até: ${new Date(now + this.botPerguntasCache.ttl).toLocaleTimeString()}`);
   }
 
   /**
@@ -97,12 +101,14 @@ class DataCache {
   }
 
   /**
-   * Obtém dados do Bot_perguntas do cache
+   * Obtém dados do Bot_perguntas do cache (OTIMIZADO)
    * @returns {Array|null} Dados do cache ou null se inválido
    */
   getBotPerguntasData() {
     if (this._isBotPerguntasCacheValid()) {
-      console.log('✅ Data Cache: Retornando Bot_perguntas do cache');
+      const count = this.botPerguntasCache.data ? this.botPerguntasCache.data.length : 0;
+      const age = this.botPerguntasCache.timestamp ? Math.round((Date.now() - this.botPerguntasCache.timestamp) / 1000) : 0;
+      console.log(`✅ Data Cache: Retornando Bot_perguntas do cache - ${count} registros, idade: ${age}s`);
       return this.botPerguntasCache.data;
     }
     
@@ -144,7 +150,32 @@ class DataCache {
   }
 
   /**
-   * Obtém status dos caches
+   * Força invalidação do cache para recarregamento
+   */
+  invalidateCache() {
+    this.botPerguntasCache.timestamp = null;
+    this.articlesCache.timestamp = null;
+    console.log('🔄 Data Cache: Cache invalidado - próximo acesso recarregará do MongoDB');
+  }
+
+  /**
+   * Verifica se o cache precisa ser recarregado
+   * @returns {boolean} True se precisa recarregar
+   */
+  needsReload() {
+    const botPerguntasNeedsReload = !this._isBotPerguntasCacheValid();
+    const articlesNeedsReload = !this._isArticlesCacheValid();
+    
+    if (botPerguntasNeedsReload || articlesNeedsReload) {
+      console.log(`🔄 Data Cache: Recarregamento necessário - Bot_perguntas: ${botPerguntasNeedsReload}, Artigos: ${articlesNeedsReload}`);
+      return true;
+    }
+    
+    return false;
+  }
+
+  /**
+   * Obtém status dos caches (OTIMIZADO)
    * @returns {Object} Status dos caches
    */
   getCacheStatus() {
@@ -153,13 +184,15 @@ class DataCache {
         hasData: !!this.botPerguntasCache.data,
         isValid: this._isBotPerguntasCacheValid(),
         count: this.botPerguntasCache.data ? this.botPerguntasCache.data.length : 0,
-        age: this.botPerguntasCache.timestamp ? Math.round((Date.now() - this.botPerguntasCache.timestamp) / 1000) : null
+        age: this.botPerguntasCache.timestamp ? Math.round((Date.now() - this.botPerguntasCache.timestamp) / 1000) : null,
+        ttl: this.botPerguntasCache.ttl / 1000 // em segundos
       },
       articles: {
         hasData: !!this.articlesCache.data,
         isValid: this._isArticlesCacheValid(),
         count: this.articlesCache.data ? this.articlesCache.data.length : 0,
-        age: this.articlesCache.timestamp ? Math.round((Date.now() - this.articlesCache.timestamp) / 1000) : null
+        age: this.articlesCache.timestamp ? Math.round((Date.now() - this.articlesCache.timestamp) / 1000) : null,
+        ttl: this.articlesCache.ttl / 1000 // em segundos
       }
     };
   }

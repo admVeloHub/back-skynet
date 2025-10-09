@@ -1,5 +1,5 @@
 // Search Service - Busca inteligente em Bot_perguntas e Artigos
-// VERSION: v2.6.0 | DATE: 2024-12-19 | AUTHOR: VeloHub Development Team
+// VERSION: v1.2.0 | DATE: 2024-12-19 | AUTHOR: VeloHub Development Team
 // VERSION: v2.3.0 | DATE: 2025-01-27 | AUTHOR: Lucas Gravina - VeloHub Development Team
 const cosineSimilarity = require('cosine-similarity');
 
@@ -450,33 +450,11 @@ class SearchService {
     let correspondenciasUnicas = Object.values(uniqueMatches);
     correspondenciasUnicas.sort((a, b) => b.score - a.score);
 
-    // Verificar se precisa de esclarecimento
-    const needsClarification = correspondenciasUnicas.length > 1 && 
-      correspondenciasUnicas[0].score === correspondenciasUnicas[1].score;
-
     return {
-      matches: correspondenciasUnicas,
-      needsClarification: needsClarification
+      matches: correspondenciasUnicas
     };
   }
 
-  /**
-   * Gera menu de esclarecimento para perguntas ambíguas
-   * @param {Array} matches - Matches encontrados
-   * @param {string} question - Pergunta original
-   * @returns {Object} Menu de esclarecimento
-   */
-  generateClarificationMenu(matches, question) {
-    const options = matches.slice(0, 12).map(match => match.perguntaOriginal || match.Pergunta || 'Opção não disponível');
-    
-    return {
-      status: "clarification_needed",
-      resposta: `Encontrei vários tópicos sobre "${question}". Qual deles se encaixa melhor na sua dúvida?`,
-      options: options,
-      source: "Bot_perguntas",
-      sourceRow: 'Pergunta de Esclarecimento'
-    };
-  }
 
   /**
    * Gera menu de esclarecimento baseado na análise da IA
