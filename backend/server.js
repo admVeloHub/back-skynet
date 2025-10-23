@@ -1,7 +1,24 @@
 /**
  * VeloHub V3 - Backend Server
- * VERSION: v2.18.0 | DATE: 2025-01-10 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.20.0 | DATE: 2025-01-27 | AUTHOR: VeloHub Development Team
  */
+
+// ===== FALLBACK PARA TESTES LOCAIS =====
+const FALLBACK_FOR_LOCAL_TESTING = {
+  _id: "devId123",
+  pergunta: "Fallback para teste",
+  resposta: "Texto para preenchimento de teste via fallback",
+  palavrasChave: "fallback",
+  sinonimos: "teste, interno",
+  tabulacao: "Categoria: Teste; Motivo: Tabulação; Detalhe: exibição"
+};
+
+// Função para verificar se deve usar fallback local
+const shouldUseLocalFallback = () => {
+  return process.env.NODE_ENV === 'development' || 
+         process.env.LOCAL_TESTING === 'true' ||
+         !process.env.MONGODB_URI;
+};
 
 // LOG DE DIAGNÓSTICO #1: Identificar a versão do código
 console.log("🚀 INICIANDO APLICAÇÃO - VERSÃO DO CÓDIGO: 1.5.5 - DIAGNÓSTICO ATIVO");
@@ -21,8 +38,8 @@ const { MongoClient } = require('mongodb');
 require('dotenv').config();
 
 // Importar serviços do chatbot
-// VERSION: v2.12.0 | DATE: 2024-12-19 | AUTHOR: Lucas Gravina - VeloHub Development Team
-let aiService, searchService, sessionService, logsService, dataCache, userActivityLogger, botFeedbackService, responseFormatter;
+// VERSION: v2.19.0 | DATE: 2025-01-10 | AUTHOR: VeloHub Development Team
+let aiService, searchService, sessionService, dataCache, userActivityLogger, botFeedbackService, responseFormatter;
 
 console.log('🔄 Iniciando carregamento de serviços...');
 
@@ -38,10 +55,6 @@ try {
   console.log('📦 Carregando sessionService...');
   sessionService = require('./services/chatbot/sessionService');
   console.log('✅ sessionService carregado');
-  
-  console.log('📦 Carregando logsService...');
-  logsService = require('./services/chatbot/logsService');
-  console.log('✅ logsService carregado');
   
   console.log('📦 Carregando dataCache...');
   dataCache = require('./services/chatbot/dataCache');
@@ -131,6 +144,17 @@ app.use((req, res, next) => {
   next();
 });
 
+// Função para formatar conteúdo de artigos seguindo padrões do schema
+const formatArticleContent = (content) => {
+  if (!content) return '';
+  
+  return content
+    // Converter \n literais para quebras reais
+    .replace(/\\n/g, '\n')
+    // Converter quebras múltiplas excessivas
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+};
 
 // MongoDB Connection
 const uri = process.env.MONGO_ENV;
@@ -1591,9 +1615,15 @@ app.post('/api/chatbot/ask', async (req, res) => {
         responseSource = 'bot_perguntas';
         console.log('✅ PONTO 1: Usando resposta direta do Bot_perguntas (fallback)');
       } else {
-        finalResponse = 'Não consegui encontrar uma resposta precisa para sua pergunta. Pode fornecer mais detalhes?';
-        responseSource = 'no_results';
-        console.log('❌ PONTO 1: Nenhuma resposta encontrada');
+        if (shouldUseLocalFallback()) {
+          finalResponse = FALLBACK_FOR_LOCAL_TESTING.resposta;
+          responseSource = 'local_fallback';
+          console.log('🧪 PONTO 1: Usando fallback para teste local');
+        } else {
+          finalResponse = 'Não consegui encontrar uma resposta precisa para sua pergunta. Pode fornecer mais detalhes?';
+          responseSource = 'no_results';
+          console.log('❌ PONTO 1: Nenhuma resposta encontrada');
+        }
       }
     }
 
@@ -1614,10 +1644,16 @@ app.post('/api/chatbot/ask', async (req, res) => {
       source: responseSource,
       aiProvider: aiProvider,
       sessionId: session.id,
+      tabulacao: shouldUseLocalFallback() ? FALLBACK_FOR_LOCAL_TESTING.tabulacao : (botPerguntasData.length > 0 ? botPerguntasData[0].tabulacao : null),
       articles: articlesData.slice(0, 3).map(article => ({
         id: article._id,
+        _id: article._id,
         title: article.artigo_titulo,
-        content: article.artigo_conteudo.substring(0, 150) + '...',
+        content: formatArticleContent(article.artigo_conteudo),  // COMPLETO E FORMATADO
+        tag: article.tag || null,
+        category: article.categoria_titulo || null,
+        author: article.autor || null,
+        createdAt: article.createdAt || null,
         relevanceScore: article.relevanceScore
       })),
       botPerguntaUsed: botPerguntasData.length > 0 ? {
