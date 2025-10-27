@@ -1,6 +1,6 @@
 /**
  * VeloHub V3 - Main Styles
- * VERSION: v1.0.0 | DATE: 2024-12-19 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.1.0 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
  */
 
 /* ============================================= */
@@ -72,7 +72,7 @@
 .critical-news-frame {
   border: 2px solid #dc2626 !important;
   border-radius: 12px !important;
-  background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%) !important;
+  background: linear-gradient(135deg, rgba(254, 242, 242, 0.85) 0%, rgba(254, 226, 226, 0.85) 100%) !important;
   padding: 16px !important;
   margin: 8px 0 !important;
   box-shadow: 0 4px 20px rgba(220, 38, 38, 0.2) !important;
@@ -471,4 +471,40 @@ code {
 
 .dark .user-info:hover {
     background-color: rgba(0, 0, 0, 0.05) !important;
+}
+
+/* ============================================= */
+/* == ESTILOS VELONEWS SOLVED == */
+/* ============================================= */
+
+.solved-news-frame {
+  opacity: 0.6;
+  border-color: #4CAF50 !important;
+  background-color: rgba(76, 175, 80, 0.05);
+}
+
+.solved-badge {
+  background: #4CAF50;
+  color: white;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  display: inline-block;
+  margin-bottom: 8px;
+}
+
+.solved-news-content {
+  text-decoration: line-through;
+  color: #666;
+}
+
+/* Dark theme para solved */
+.dark .solved-news-frame {
+  background-color: rgba(76, 175, 80, 0.1);
+}
+
+.dark .solved-news-content {
+  color: #999;
 }

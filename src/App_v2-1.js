@@ -1,6 +1,6 @@
 /**
  * VeloHub V3 - Main Application Component
- * VERSION: v1.8.0 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.1.4 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
  */
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -8,6 +8,7 @@ import { Home, FileText, MessageSquare, LifeBuoy, Book, Search, User, Sun, Moon,
 import { mainAPI, veloNewsAPI, articlesAPI, faqAPI } from './services/api';
 import { checkAuthenticationState, updateUserInfo } from './services/auth';
 import { API_BASE_URL } from './config/api-config';
+import NewsHistoryModal from './components/NewsHistoryModal';
 import LoginPage from './components/LoginPage';
 import Chatbot from './components/Chatbot';
 import SupportModal from './components/SupportModal';
@@ -73,14 +74,6 @@ const CriticalModalManager = {
     return localStorage.getItem(CriticalModalManager.SHOW_REMIND_BUTTON_KEY) !== 'false';
   },
   
-  // Resetar o estado para uma nova notícia crítica
-  resetForNewCriticalNews: () => {
-    // RESETAR COMPLETAMENTE O ESTADO
-    localStorage.removeItem(CriticalModalManager.ACKNOWLEDGED_KEY);
-    localStorage.removeItem(CriticalModalManager.REMIND_LATER_KEY);
-    localStorage.setItem(CriticalModalManager.SHOW_REMIND_BUTTON_KEY, 'true');
-  },
-  
   // Verificar se deve mostrar o modal
   shouldShowModal: (criticalNews) => {
     if (!criticalNews) return false;
@@ -100,15 +93,6 @@ const CriticalModalManager = {
     return true;
   },
   
-  // Função de debug para limpar manualmente o estado (útil para testes)
-  debugClearState: () => {
-    console.log('🧹 Limpando estado manualmente para debug...');
-    localStorage.removeItem(CriticalModalManager.ACKNOWLEDGED_KEY);
-    localStorage.removeItem(CriticalModalManager.REMIND_LATER_KEY);
-    localStorage.setItem(CriticalModalManager.SHOW_REMIND_BUTTON_KEY, 'true');
-    console.log('✅ Estado limpo manualmente');
-  },
-  
   // Gerenciar a última notícia crítica vista
   getLastCriticalNews: () => {
     return localStorage.getItem(CriticalModalManager.LAST_CRITICAL_KEY);
@@ -122,7 +106,39 @@ const CriticalModalManager = {
   isNewCriticalNews: (criticalKey) => {
     const lastCritical = CriticalModalManager.getLastCriticalNews();
     return lastCritical !== criticalKey;
+  },
+  
+  // Resetar o estado para uma nova notícia crítica
+  resetForNewCriticalNews: () => {
+    // RESETAR COMPLETAMENTE O ESTADO
+    localStorage.removeItem(CriticalModalManager.ACKNOWLEDGED_KEY);
+    localStorage.removeItem(CriticalModalManager.REMIND_LATER_KEY);
+    localStorage.setItem(CriticalModalManager.SHOW_REMIND_BUTTON_KEY, 'true');
+  },
+  
+  // Função de debug para limpar manualmente o estado (útil para testes)
+  debugClearState: () => {
+    console.log('🧹 Limpando estado manualmente para debug...');
+    localStorage.removeItem(CriticalModalManager.ACKNOWLEDGED_KEY);
+    localStorage.removeItem(CriticalModalManager.REMIND_LATER_KEY);
+    localStorage.setItem(CriticalModalManager.SHOW_REMIND_BUTTON_KEY, 'true');
+    console.log('✅ Estado limpo manualmente');
   }
+};
+
+// ===== FUNÇÕES AUXILIARES PARA LÓGICA DE URGÊNCIA =====
+
+/**
+ * Verifica se notícia crítica passou das 12 horas
+ * @param {string|Date} createdAt - Data de criação da notícia
+ * @returns {boolean} true se passou de 12 horas
+ */
+const isExpired12Hours = (createdAt) => {
+  const now = new Date();
+  const created = new Date(createdAt);
+  const diffMs = now - created;
+  const diffHours = diffMs / (1000 * 60 * 60);
+  return diffHours >= 12;
 };
 
 // Função global para debug (disponível no console do navegador)
@@ -225,7 +241,7 @@ const CriticalNewsModal = ({ news, onClose }) => {
   const shouldShowRemindButton = CriticalModalManager.shouldShowRemindButton();
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50">
+    <div className="fixed inset-0 flex items-center justify-center z-50" style={{backgroundColor: 'rgba(39, 42, 48, 0.8)'}}>
               <div className="rounded-lg shadow-2xl p-8 max-w-2xl w-full mx-4 velohub-container" style={{borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)'}}>
         <h2 className="text-2xl font-bold text-red-600 mb-4">{news.title}</h2>
                  <div 
@@ -276,6 +292,8 @@ export default function App_v2() {
   const [showRemindLater, setShowRemindLater] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [veloNews, setVeloNews] = useState([]);
 
   useEffect(() => {
     // Verificar autenticação primeiro
@@ -350,18 +368,18 @@ export default function App_v2() {
   const renderContent = () => {
     switch (activePage) {
       case 'Home':
-        return <HomePage setCriticalNews={setCriticalNews} />;
+        return <HomePage setCriticalNews={setCriticalNews} setShowHistoryModal={setShowHistoryModal} setVeloNews={setVeloNews} veloNews={veloNews} />;
              case 'VeloBot':
         return <ProcessosPage />;
       case 'Artigos':
         return <ArtigosPage />;
       case 'Apoio':
         // Redirecionar para Home se tentar acessar Apoio (desativado)
-        return <HomePage setCriticalNews={setCriticalNews} />;
+        return <HomePage setCriticalNews={setCriticalNews} setShowHistoryModal={setShowHistoryModal} setVeloNews={setVeloNews} veloNews={veloNews} />;
       case 'VeloAcademy':
         return <div className="text-center p-10 text-gray-800 dark:text-gray-200"><h1 className="text-3xl">VeloAcademy</h1><p>Clique no botão VeloAcademy no header para acessar a plataforma.</p></div>;
       default:
-        return <HomePage setCriticalNews={setCriticalNews} />;
+        return <HomePage setCriticalNews={setCriticalNews} setShowHistoryModal={setShowHistoryModal} setVeloNews={setVeloNews} veloNews={veloNews} />;
     }
   };
 
@@ -392,6 +410,34 @@ export default function App_v2() {
       {criticalNews && (
         <CriticalNewsModal news={criticalNews} onClose={() => setCriticalNews(null)} />
       )}
+      
+      {/* Modal de Histórico de Notícias */}
+      <NewsHistoryModal
+        isOpen={showHistoryModal}
+        onClose={() => setShowHistoryModal(false)}
+        news={veloNews}
+        onAcknowledge={async (newsId, userName) => {
+          try {
+            const response = await fetch(`${API_BASE_URL}/api/velonews/acknowledge`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                newsId: newsId,
+                userName: userName || user?.name || 'Usuário'
+              })
+            });
+            
+            if (response.ok) {
+              console.log('✅ Notícia marcada como ciente');
+              // Atualizar a lista de notícias se necessário
+            }
+          } catch (error) {
+            console.error('❌ Erro ao marcar notícia como ciente:', error);
+          }
+        }}
+      />
     </div>
   );
 }
@@ -522,13 +568,130 @@ const PontoWidget = () => {
 };
 
 // Conteúdo da Página Home - VERSÃO MELHORADA
-const HomePage = ({ setCriticalNews }) => {
+const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews }) => {
     const [selectedNews, setSelectedNews] = useState(null);
-    const [veloNews, setVeloNews] = useState([]);
+    const [selectedArticle, setSelectedArticle] = useState(null);
     const [recentItems, setRecentItems] = useState([]);
     const [loading, setLoading] = useState(true);
     const [lastRefresh, setLastRefresh] = useState(Date.now());
     const [lastCriticalNewsId, setLastCriticalNewsId] = useState(null);
+    
+    // Estados dos módulos - controlados pelo Console VeloHub
+    const [moduleStatus, setModuleStatus] = useState({
+        'credito-trabalhador': 'on',
+        'credito-pessoal': 'on', 
+        'antecipacao': 'off',
+        'pagamento-antecipado': 'on',
+        'modulo-irpf': 'off',
+        'seguro': 'on'
+    });
+
+    // Função para buscar status dos módulos do Console VeloHub
+    const fetchModuleStatus = async () => {
+        try {
+            const url = `${API_BASE_URL}/module-status`;
+            console.log('🔍 HomePage: Buscando status dos módulos em:', url);
+            
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            });
+            
+            if (response.ok) {
+                const statusData = await response.json();
+                console.log('✅ HomePage: Status dos módulos recebido:', statusData);
+                setModuleStatus(statusData);
+            } else {
+                console.error('❌ HomePage: Erro HTTP:', response.status, response.statusText);
+            }
+        } catch (error) {
+            console.error('❌ HomePage: Erro ao buscar status dos módulos:', error);
+        }
+    };
+
+    // Função para abrir modal de artigo
+    const handleArticleClick = (article) => {
+        setSelectedArticle(article);
+    };
+
+    // Função para renderizar status do módulo
+    const renderModuleStatus = (moduleKey, moduleName, title) => {
+        const status = moduleStatus[moduleKey];
+        let statusConfig = {};
+        
+        switch (status) {
+            case 'on':
+                statusConfig = {
+                    color: 'bg-green-500',
+                    animate: 'animate-pulse',
+                    title: 'Serviço Online - Funcionando normalmente'
+                };
+                break;
+            case 'revisao':
+                statusConfig = {
+                    color: 'bg-yellow-500',
+                    animate: '',
+                    title: 'Em Revisão - Serviço temporariamente indisponível'
+                };
+                break;
+            case 'off':
+                statusConfig = {
+                    color: 'bg-red-500',
+                    animate: '',
+                    title: 'Serviço Offline - Indisponível no momento'
+                };
+                break;
+            default:
+                statusConfig = {
+                    color: 'bg-gray-500',
+                    animate: '',
+                    title: 'Status Desconhecido'
+                };
+        }
+        
+        return (
+            <div className="flex items-center gap-1 text-sm p-1 rounded hover:bg-gray-50 transition-colors" title={statusConfig.title}>
+                <span className={`h-2 w-2 ${statusConfig.color} rounded-full ${statusConfig.animate}`}></span>
+                <span style={{color: 'var(--cor-texto-principal)'}}>{moduleName}</span>
+            </div>
+        );
+    };
+
+    // ===== FUNÇÃO PARA ACKNOWLEDGE DE NOTÍCIAS =====
+    const handleAcknowledgeNews = async (newsId, userName) => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/velo-news/${newsId}/acknowledge`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    userId: user?.email || 'unknown',
+                    userName: userName || user?.name || 'Usuário'
+                })
+            });
+
+            const result = await response.json();
+            
+            if (result.success) {
+                console.log('✅ Notícia confirmada:', result.message);
+                // Atualizar a notícia local para mostrar como confirmada
+                setVeloNews(prevNews => 
+                    prevNews.map(news => 
+                        news._id === newsId 
+                            ? { ...news, acknowledged: true }
+                            : news
+                    )
+                );
+            } else {
+                console.error('❌ Erro ao confirmar notícia:', result.error);
+            }
+        } catch (error) {
+            console.error('❌ Erro ao confirmar notícia:', error);
+        }
+    };
 
     useEffect(() => {
         const fetchAllData = async () => {
@@ -546,6 +709,9 @@ const HomePage = ({ setCriticalNews }) => {
                     return db - da;
                 });
                 
+                console.log('🔍 FRONTEND - veloNews[0]:', sortedVeloNews[0]);
+                console.log('🔍 FRONTEND - solved tipo:', typeof sortedVeloNews[0]?.solved);
+                console.log('🔍 FRONTEND - solved valor:', sortedVeloNews[0]?.solved);
                 setVeloNews(sortedVeloNews);
                 
                 // Verificar notícias críticas - buscar a MAIS RECENTE
@@ -612,36 +778,80 @@ const HomePage = ({ setCriticalNews }) => {
         return () => clearInterval(refreshInterval);
     }, [setCriticalNews, lastCriticalNewsId]);
 
+    // Buscar status dos módulos
+    useEffect(() => {
+        // Buscar status inicial
+        fetchModuleStatus();
+        
+        // Configurar refresh automático
+        const interval = setInterval(fetchModuleStatus, 3 * 60 * 1000); // 3 minutos (consistente com o sistema)
+        
+        return () => clearInterval(interval);
+    }, []);
+
 
     return (
         <div className="container mx-auto px-2 py-8 grid grid-cols-1 lg:grid-cols-4 gap-6">
             <aside className="lg:col-span-1 p-4 rounded-lg shadow-sm velohub-container" style={{borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)', padding: '24px', margin: '16px'}}>
-                                 <h3 className="font-bold text-xl mb-4 border-b pb-2 text-center" style={{color: 'var(--blue-dark)', borderColor: 'var(--blue-opaque)'}}>Recentes</h3>
+                {/* Widget Serviços - NOVO NO TOPO */}
+                <div className="mb-6">
+                    <h3 className="font-bold text-xl mb-4 border-b pb-2 text-center" style={{color: 'var(--blue-dark)', borderColor: 'var(--blue-opaque)'}}>Serviços</h3>
+                    {/* Grid de Status dos Serviços - Layout 2x3 */}
+                    <div className="grid grid-cols-2 gap-1">
+                        {/* Crédito Trabalhador */}
+                        {renderModuleStatus('credito-trabalhador', 'C. Trabalhador')}
+                        
+                        {/* Crédito Pessoal */}
+                        {renderModuleStatus('credito-pessoal', 'C. Pessoal')}
+                        
+                        {/* Antecipação */}
+                        {renderModuleStatus('antecipacao', 'Antecipação')}
+                        
+                        {/* Pagamento Antecipado */}
+                        {renderModuleStatus('pagamento-antecipado', 'Pgto Antecipado')}
+                        
+                        {/* Módulo IRPF */}
+                        {renderModuleStatus('modulo-irpf', 'IRPF')}
+                        
+                        {/* Seguro */}
+                        {renderModuleStatus('seguro', 'Seguro')}
+                    </div>
+                </div>
+
+                {/* Widget Recentes - SIMPLIFICADO */}
+                <div className="mt-6">
+                    <h3 className="font-bold text-xl mb-4 border-b pb-2 text-center" style={{color: 'var(--blue-dark)', borderColor: 'var(--blue-opaque)'}}>Recentes</h3>
                 {loading ? (
                     <div className="text-center py-8">
                         <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500 mx-auto"></div>
                         <p className="text-gray-500 dark:text-gray-400 mt-2 text-sm">Carregando...</p>
                     </div>
                  ) : recentItems.length > 0 ? (
-                    <div className="space-y-4">
+                    <div className="space-y-3">
                          {recentItems.map(item => (
                              <div key={item._id || item.id} className="border-b dark:border-gray-700 pb-3 last:border-b-0">
-                                 <div className="flex items-center gap-2 mb-1">
-                                     <span className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 text-xs px-2 py-1 rounded-full">
-                                         Artigo
-                                     </span>
-                                     {item.category && (
-                                         <span className="bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200 text-xs px-2 py-1 rounded-full">
-                                             {item.category}
+                                 <div className="flex items-center justify-between gap-2 mb-2">
+                                     <div className="flex items-center gap-2">
+                                         <span className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 text-xs px-2 py-1 rounded-full">
+                                             Artigo
                                          </span>
-                                     )}
+                                         {item.category && (
+                                             <span className="bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200 text-xs px-2 py-1 rounded-full">
+                                                 {item.category}
+                                             </span>
+                                         )}
+                                     </div>
+                                     <span className="text-xs text-green-600 dark:text-green-400 whitespace-nowrap">
+                                         {new Date(item.createdAt).toLocaleDateString('pt-BR')}
+                                     </span>
                                  </div>
-                                 <h4 className="font-semibold text-sm text-gray-800 dark:text-gray-200 line-clamp-2 mb-1">{item.title}</h4>
-                                 <div 
-                                     className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2 prose prose-xs dark:prose-invert max-w-none"
-                                     dangerouslySetInnerHTML={{ __html: formatPreviewText(item.content || '', 100) }}
-                                 />
-                                 <span className="text-xs text-green-600 dark:text-green-400">{new Date(item.createdAt).toLocaleDateString('pt-BR')}</span>
+                                 <h4 
+                                     className="font-semibold text-sm text-gray-800 dark:text-gray-200 line-clamp-2 cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200"
+                                     onClick={() => handleArticleClick(item)}
+                                     title="Clique para ler o artigo completo"
+                                 >
+                                     {item.title}
+                                 </h4>
                             </div>
                         ))}
                     </div>
@@ -650,239 +860,239 @@ const HomePage = ({ setCriticalNews }) => {
                          <p className="text-gray-500 dark:text-gray-400 text-sm">Nenhum item recente</p>
                     </div>
                 )}
+                </div>
 
-                                  {/* Divisor */}
-                 <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-600">
-                     {/* Widget de Ponto */}
-                     <div style={{
-                         background: 'transparent',
-                         border: '1.5px solid var(--blue-dark)',
-                         borderRadius: '8px',
-                         padding: '16px',
-                         margin: '8px',
-                         marginTop: 'auto',
-                         flexGrow: 1,
-                         minHeight: '330px',
-                         display: 'flex',
-                         flexDirection: 'column',
-                         justifyContent: 'space-between',
-                         alignItems: 'center',
-                         gap: '16px',
-                         position: 'relative'
-                     }}>
-                         {/* Overlay "Em Breve" */}
-                         <div style={{
-                             position: 'absolute',
-                             top: 0,
-                             left: 0,
-                             right: 0,
-                             bottom: 0,
-                             backgroundColor: 'rgba(128, 128, 128, 0.8)',
-                             borderRadius: '8px',
-                             display: 'flex',
-                             alignItems: 'center',
-                             justifyContent: 'center',
-                             zIndex: 10,
-                             backdropFilter: 'blur(2px)'
-                         }}>
-                             <div style={{
-                                 backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                                 padding: '20px 30px',
-                                 borderRadius: '12px',
-                                 textAlign: 'center',
-                                 boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
-                                 border: '2px solid var(--blue-dark)'
-                             }}>
-                                 <h4 style={{
-                                     color: 'var(--blue-dark)',
-                                     fontSize: '18px',
-                                     fontWeight: 'bold',
-                                     margin: 0
-                                 }}>
-                                     Em Breve
-                                 </h4>
-                                 <p style={{
-                                     color: 'var(--blue-opaque)',
-                                     fontSize: '14px',
-                                     margin: '8px 0 0 0'
-                                 }}>
-                                     Funcionalidade em desenvolvimento
-                                 </p>
-                             </div>
-                         </div>
-                         {/* Título Ponto */}
-                         <h3 className="font-bold text-lg text-center" style={{color: 'var(--blue-dark)'}}>Ponto</h3>
-                         
-                         {/* Marcador de Status do Agente */}
-                         <img 
-                             src="/simbolo_velotax_ajustada_cor (1).png" 
-                             alt="Status VeloTax" 
-                             style={{
-                                 width: '60px',
-                                 height: 'auto',
-                                 opacity: '0.9',
-                                 filter: 'brightness(0) invert(1)',
-                                 transition: 'all 0.3s ease'
-                             }}
-                             className="agent-status-indicator offline"
-                         />
-                         
-                         {/* Relógio */}
-                         <div style={{
-                             display: 'flex',
-                             flexDirection: 'column',
-                             alignItems: 'center',
-                             gap: '2px',
-                             marginTop: '32px'
-                         }}>
-                             <div style={{
-                                 fontSize: '24px',
-                                 fontWeight: 'bold',
-                                 color: 'var(--blue-dark)',
-                                 fontFamily: 'monospace'
-                             }}>
-                                 {new Date().toLocaleTimeString('pt-BR', {
-                                     hour: '2-digit',
-                                     minute: '2-digit',
-                                     second: '2-digit'
-                                 })}
-                             </div>
-                             <div style={{
-                                 fontSize: '14px',
-                                 color: 'var(--blue-opaque)',
-                                 fontWeight: '500',
-                                 whiteSpace: 'nowrap'
-                             }}>
-                                 {new Date().toLocaleDateString('pt-BR', {
-                                     weekday: 'short',
-                                     day: '2-digit',
-                                     month: 'short',
-                                     year: 'numeric'
-                                 })}
-                             </div>
-                         </div>
-                         
-                         {/* Botões de Ponto */}
-                         <div style={{
-                             display: 'flex',
-                             gap: '20px',
-                             alignItems: 'center',
-                             marginTop: 'auto'
-                         }}>
-                             {/* Botão de Entrada */}
-                             <div style={{
-                                 position: 'relative',
-                                 width: '64px',
-                                 height: '64px',
-                                 display: 'flex',
-                                 alignItems: 'center',
-                                 justifyContent: 'center'
-                             }}>
-                                 {/* Círculo externo vazio */}
-                                 <div style={{
-                                     position: 'absolute',
-                                     width: '67px',
-                                     height: '67px',
-                                     borderRadius: '50%',
-                                     border: '2px solid var(--blue-opaque)',
-                                     top: '50%',
-                                     left: '50%',
-                                     transform: 'translate(-50%, -50%)'
-                                 }}></div>
-                                 {/* Círculo interno sólido */}
-                                 <div 
-                                     style={{
-                                         position: 'absolute',
-                                         width: '60px',
-                                         height: '60px',
-                                         borderRadius: '50%',
-                                         backgroundColor: 'var(--blue-opaque)',
-                                         top: '50%',
-                                         left: '50%',
-                                         transform: 'translate(-50%, -50%)',
-                                         display: 'flex',
-                                         alignItems: 'center',
-                                         justifyContent: 'center',
-                                         color: 'white',
-                                         fontSize: '12px',
-                                         fontWeight: 'bold',
-                                         cursor: 'pointer'
-                                     }}
-                                     onClick={() => {
-                                         const indicator = document.querySelector('.agent-status-indicator');
-                                         indicator.classList.remove('offline');
-                                         indicator.classList.add('online');
-                                     }}
-                                 >
-                                     Entrada
-                                 </div>
-                             </div>
-                             
-                             {/* Botão de Saída */}
-                             <div style={{
-                                 position: 'relative',
-                                 width: '64px',
-                                 height: '64px',
-                                 display: 'flex',
-                                 alignItems: 'center',
-                                 justifyContent: 'center'
-                             }}>
-                                 {/* Círculo externo vazio */}
-                                 <div style={{
-                                     position: 'absolute',
-                                     width: '67px',
-                                     height: '67px',
-                                     borderRadius: '50%',
-                                     border: '2px solid var(--yellow)',
-                                     top: '50%',
-                                     left: '50%',
-                                     transform: 'translate(-50%, -50%)'
-                                 }}></div>
-                                 {/* Círculo interno sólido */}
-                                 <div 
-                                     style={{
-                                         position: 'absolute',
-                                         width: '60px',
-                                         height: '60px',
-                                         borderRadius: '50%',
-                                         backgroundColor: 'var(--yellow)',
-                                         top: '50%',
-                                         left: '50%',
-                                         transform: 'translate(-50%, -50%)',
-                                         display: 'flex',
-                                         alignItems: 'center',
-                                         justifyContent: 'center',
-                                         color: 'var(--blue-dark)',
-                                         fontSize: '12px',
-                                         fontWeight: 'bold',
-                                         cursor: 'pointer'
-                                     }}
-                                     onClick={() => {
-                                         const indicator = document.querySelector('.agent-status-indicator');
-                                         indicator.classList.remove('online');
-                                         indicator.classList.add('offline');
-                                     }}
-                                 >
-                                     Saída
-                                 </div>
-                             </div>
-                         </div>
-                     </div>
-                 </div>
-                 
-                 {/* CSS para estados do agente */}
-                 <style jsx>{`
-                     .agent-status-indicator.online {
-                         opacity: 1 !important;
-                         filter: none !important;
-                         filter: drop-shadow(0 0 40px var(--green)) !important;
-                     }
-                     
-                     .agent-status-indicator.offline {
-                         opacity: 0.3 !important;
-                         filter: grayscale(100%) drop-shadow(0 0 40px var(--yellow)) !important;
-                     }
-                 `}</style>
+                {/* Widget de Ponto - RESTAURADO NO LOCAL ORIGINAL */}
+                <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-600">
+                    <div style={{
+                        background: 'transparent',
+                        border: '1.5px solid var(--blue-dark)',
+                        borderRadius: '8px',
+                        padding: '16px',
+                        margin: '8px',
+                        marginTop: 'auto',
+                        flexGrow: 1,
+                        minHeight: '330px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        gap: '16px',
+                        position: 'relative'
+                    }}>
+                        {/* Overlay "Em Breve" */}
+                        <div style={{
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            backgroundColor: 'rgba(128, 128, 128, 0.8)',
+                            borderRadius: '8px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            zIndex: 10,
+                            backdropFilter: 'blur(2px)'
+                        }}>
+                            <div style={{
+                                backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                                padding: '20px 30px',
+                                borderRadius: '12px',
+                                textAlign: 'center',
+                                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
+                                border: '2px solid var(--blue-dark)'
+                            }}>
+                                <h4 style={{
+                                    color: 'var(--blue-dark)',
+                                    fontSize: '18px',
+                                    fontWeight: 'bold',
+                                    margin: 0
+                                }}>
+                                    Em Breve
+                                </h4>
+                                <p style={{
+                                    color: 'var(--blue-opaque)',
+                                    fontSize: '14px',
+                                    margin: '8px 0 0 0'
+                                }}>
+                                    Funcionalidade em desenvolvimento
+                                </p>
+                            </div>
+                        </div>
+                        {/* Título Ponto */}
+                        <h3 className="font-bold text-lg text-center" style={{color: 'var(--blue-dark)'}}>Ponto</h3>
+                        
+                        {/* Marcador de Status do Agente */}
+                        <img 
+                            src="/simbolo_velotax_ajustada_cor (1).png" 
+                            alt="Status VeloTax" 
+                            style={{
+                                width: '60px',
+                                height: 'auto',
+                                opacity: '0.9',
+                                filter: 'brightness(0) invert(1)',
+                                transition: 'all 0.3s ease'
+                            }}
+                            className="agent-status-indicator offline"
+                        />
+                        
+                        {/* Relógio */}
+                        <div style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            gap: '2px',
+                            marginTop: '32px'
+                        }}>
+                            <div style={{
+                                fontSize: '24px',
+                                fontWeight: 'bold',
+                                color: 'var(--blue-dark)',
+                                fontFamily: 'monospace'
+                            }}>
+                                {new Date().toLocaleTimeString('pt-BR', {
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                    second: '2-digit'
+                                })}
+                            </div>
+                            <div style={{
+                                fontSize: '14px',
+                                color: 'var(--blue-opaque)',
+                                fontWeight: '500',
+                                whiteSpace: 'nowrap'
+                            }}>
+                                {new Date().toLocaleDateString('pt-BR', {
+                                    weekday: 'short',
+                                    day: '2-digit',
+                                    month: 'short',
+                                    year: 'numeric'
+                                })}
+                            </div>
+                        </div>
+                        
+                        {/* Botões de Ponto */}
+                        <div style={{
+                            display: 'flex',
+                            gap: '20px',
+                            alignItems: 'center',
+                            marginTop: 'auto'
+                        }}>
+                            {/* Botão de Entrada */}
+                            <div style={{
+                                position: 'relative',
+                                width: '64px',
+                                height: '64px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}>
+                                {/* Círculo externo vazio */}
+                                <div style={{
+                                    position: 'absolute',
+                                    width: '67px',
+                                    height: '67px',
+                                    borderRadius: '50%',
+                                    border: '2px solid var(--blue-opaque)',
+                                    top: '50%',
+                                    left: '50%',
+                                    transform: 'translate(-50%, -50%)'
+                                }}></div>
+                                {/* Círculo interno sólido */}
+                                <div 
+                                    style={{
+                                        position: 'absolute',
+                                        width: '60px',
+                                        height: '60px',
+                                        borderRadius: '50%',
+                                        backgroundColor: 'var(--blue-opaque)',
+                                        top: '50%',
+                                        left: '50%',
+                                        transform: 'translate(-50%, -50%)',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        color: 'white',
+                                        fontSize: '12px',
+                                        fontWeight: 'bold',
+                                        cursor: 'pointer'
+                                    }}
+                                    onClick={() => {
+                                        const indicator = document.querySelector('.agent-status-indicator');
+                                        indicator.classList.remove('offline');
+                                        indicator.classList.add('online');
+                                    }}
+                                >
+                                    Entrada
+                                </div>
+                            </div>
+                            
+                            {/* Botão de Saída */}
+                            <div style={{
+                                position: 'relative',
+                                width: '64px',
+                                height: '64px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}>
+                                {/* Círculo externo vazio */}
+                                <div style={{
+                                    position: 'absolute',
+                                    width: '67px',
+                                    height: '67px',
+                                    borderRadius: '50%',
+                                    border: '2px solid var(--yellow)',
+                                    top: '50%',
+                                    left: '50%',
+                                    transform: 'translate(-50%, -50%)'
+                                }}></div>
+                                {/* Círculo interno sólido */}
+                                <div 
+                                    style={{
+                                        position: 'absolute',
+                                        width: '60px',
+                                        height: '60px',
+                                        borderRadius: '50%',
+                                        backgroundColor: 'var(--yellow)',
+                                        top: '50%',
+                                        left: '50%',
+                                        transform: 'translate(-50%, -50%)',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        color: 'var(--blue-dark)',
+                                        fontSize: '12px',
+                                        fontWeight: 'bold',
+                                        cursor: 'pointer'
+                                    }}
+                                    onClick={() => {
+                                        const indicator = document.querySelector('.agent-status-indicator');
+                                        indicator.classList.remove('online');
+                                        indicator.classList.add('offline');
+                                    }}
+                                >
+                                    Saída
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                {/* CSS para estados do agente */}
+                <style jsx>{`
+                    .agent-status-indicator.online {
+                        opacity: 1 !important;
+                        filter: none !important;
+                        filter: drop-shadow(0 0 40px var(--green)) !important;
+                    }
+                    
+                    .agent-status-indicator.offline {
+                        opacity: 0.3 !important;
+                        filter: grayscale(100%) drop-shadow(0 0 40px var(--yellow)) !important;
+                    }
+                `}</style>
             </aside>
                             <section className="lg:col-span-2 p-4 rounded-lg shadow-sm velohub-container" style={{borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)', padding: '24px', margin: '16px'}}>
                 <h2 className="text-center font-bold text-3xl mb-6">
@@ -896,54 +1106,98 @@ const HomePage = ({ setCriticalNews }) => {
                             <p className="text-gray-600 dark:text-gray-400 mt-2">Carregando dados do MongoDB...</p>
                         </div>
                     ) : veloNews.length > 0 ? (
-                        veloNews.slice(0, 4).map(news => (
-                            <div key={news._id} className={`${
-                                news.is_critical === 'Y' ? 'critical-news-frame' : 'border-b dark:border-gray-700 pb-4 last:border-b-0'
-                            }`}>
-                                <div className="flex justify-between items-start mb-2">
-                                    <h3 className="font-semibold text-lg text-gray-800 dark:text-gray-200">{news.title}</h3>
-                                    {news.is_critical === 'Y' && (
-                                        <span className="bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 px-2 py-1 rounded-full text-xs font-medium">
-                                            Crítica
-                                        </span>
-                                    )}
+                        veloNews.slice(0, 4).map(news => {
+                            const isSolved = news.solved === true;
+                            const isExpired = news.is_critical === 'Y' && news.acknowledged && isExpired12Hours(news.createdAt);
+                            const shouldRemoveHighlight = isExpired && !isSolved;
+                            
+                            return (
+                                <div key={news._id} className={`${
+                                    news.is_critical === 'Y' && !shouldRemoveHighlight ? 'critical-news-frame' : 'border-b dark:border-gray-700 pb-4 last:border-b-0'
+                                } ${isSolved ? 'solved-news-frame' : ''}`}>
+                                    <div className="flex justify-between items-start mb-2">
+                                        <h3 className="font-semibold text-lg text-gray-800 dark:text-gray-200">
+                                            {news.title}
+                                        </h3>
+                                        <div className="flex flex-col items-end gap-2">
+                                            {isSolved && (
+                                                <span className="solved-badge">
+                                                    Resolvido
+                                                </span>
+                                            )}
+                                            {news.is_critical === 'Y' && !isSolved && !shouldRemoveHighlight && (
+                                                <span className="bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 px-2 py-1 rounded-full text-xs font-medium">
+                                                    Crítica
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                    
+                                    <div 
+                                        className={`text-gray-600 dark:text-gray-400 line-clamp-3 mb-2 prose prose-sm dark:prose-invert max-w-none ${isSolved ? 'solved-news-content' : ''}`}
+                                        dangerouslySetInnerHTML={{ __html: news.content || '' }}
+                                    />
+                                    
+                                    <div className="flex justify-between items-center">
+                                        <div className="flex gap-2">
+                                            <button onClick={() => setSelectedNews(news)} className="text-blue-600 dark:text-blue-400 hover:underline font-medium">
+                                                Ler mais
+                                            </button>
+                                            
+                                        </div>
+                                        
+                                        {news.createdAt && (
+                                            <span className="text-xs text-gray-500 dark:text-gray-400">
+                                                {new Date(news.createdAt).toLocaleDateString('pt-BR')}
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
-                                                                 <div 
-                                     className="text-gray-600 dark:text-gray-400 line-clamp-3 mb-2 prose prose-sm dark:prose-invert max-w-none"
-                                     dangerouslySetInnerHTML={{ __html: news.content || '' }}
-                                 />
-                                <div className="flex justify-between items-center">
-                                    <button onClick={() => setSelectedNews(news)} className="text-blue-600 dark:text-blue-400 hover:underline font-medium">
-                                        Ler mais
-                                    </button>
-                                    {news.createdAt && (
-                                        <span className="text-xs text-gray-500 dark:text-gray-400">
-                                            {new Date(news.createdAt).toLocaleDateString('pt-BR')}
-                                        </span>
-                                    )}
-                                </div>
-                            </div>
-                        ))
+                            );
+                        })
                     ) : (
                         <div className="text-center py-8">
                             <p className="text-gray-500 dark:text-gray-400">Nenhuma notícia encontrada</p>
                         </div>
                     )}
+                    
+                    {/* Botão Ver Notícias Anteriores */}
+                    {veloNews.length > 4 && (
+                        <div className="text-center mt-6">
+                            <button
+                                onClick={() => {
+                                    console.log('🔍 Abrindo modal de histórico de notícias');
+                                    setShowHistoryModal(true);
+                                }}
+                                className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
+                                style={{
+                                    background: 'linear-gradient(135deg, var(--blue-dark) 0%, var(--blue-medium) 100%)',
+                                    border: 'none',
+                                    boxShadow: '0 4px 15px rgba(59, 130, 246, 0.3)'
+                                }}
+                            >
+                                Ver Notícias Anteriores
+                            </button>
+                        </div>
+                    )}
                 </div>
             </section>
-                                                   <aside className="lg:col-span-1 rounded-lg shadow-sm flex flex-col min-h-[calc(100vh-200px)] velohub-container" style={{borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)', padding: '24px', margin: '16px', position: 'relative'}}>
-                                    <h3 className="font-bold text-xl border-b text-center" style={{color: 'var(--blue-dark)', borderColor: 'var(--blue-opaque)'}}>Chat</h3>
-                                    
-                                    {/* Container preparado para implementação futura do chat */}
-                                    <div className="flex-1 flex items-center justify-center">
-                                        <div className="text-center text-gray-500 dark:text-gray-400">
-                                            <svg className="w-16 h-16 mx-auto mb-4 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                                   </svg>
-                                            <p className="text-sm">Chat em desenvolvimento</p>
-                      </div>
-                  </div>
-              </aside>
+            <aside className="lg:col-span-1 rounded-lg shadow-sm flex flex-col min-h-[calc(100vh-200px)] velohub-container" style={{borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)', padding: '24px', margin: '16px', position: 'relative'}}>
+                {/* Widget de Chat - OCUPA TODO O ESPAÇO */}
+                <div className="flex-1 flex flex-col">
+                    <h3 className="font-bold text-xl border-b text-center mb-4" style={{color: 'var(--blue-dark)', borderColor: 'var(--blue-opaque)'}}>Chat</h3>
+                    
+                    {/* Container preparado para implementação futura do chat */}
+                    <div className="flex-1 flex items-center justify-center">
+                        <div className="text-center text-gray-500 dark:text-gray-400">
+                            <svg className="w-16 h-16 mx-auto mb-4 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                            </svg>
+                            <p className="text-sm">Chat em desenvolvimento</p>
+                        </div>
+                    </div>
+                </div>
+            </aside>
             {selectedNews && (
                  <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50" onClick={() => setSelectedNews(null)}>
                                          <div className="rounded-lg shadow-2xl p-8 max-w-2xl w-full mx-4 bg-white dark:bg-gray-800" onClick={e => e.stopPropagation()} style={{borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)'}}>
@@ -955,6 +1209,40 @@ const HomePage = ({ setCriticalNews }) => {
                              className="prose dark:prose-invert max-w-none text-gray-700 dark:text-gray-300"
                              dangerouslySetInnerHTML={{ __html: selectedNews.content || '' }}
                          />
+                    </div>
+                </div>
+            )}
+
+            {selectedArticle && (
+                <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 p-4" onClick={() => setSelectedArticle(null)}>
+                    <div className="rounded-lg shadow-2xl max-w-4xl w-full max-h-[70vh] bg-white dark:bg-gray-800 flex flex-col" onClick={e => e.stopPropagation()} style={{borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)'}}>
+                        {/* Header fixo */}
+                        <div className="flex justify-between items-center p-3 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+                            <h2 className="text-lg font-bold text-gray-800 dark:text-gray-200 pr-3 line-clamp-2">{selectedArticle.title}</h2>
+                            <button onClick={() => setSelectedArticle(null)} className="text-gray-500 hover:text-gray-800 dark:text-gray-300 dark:hover:text-white text-xl flex-shrink-0">&times;</button>
+                        </div>
+                        
+                        {/* Metadados fixos */}
+                        <div className="px-3 py-2 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+                            <div className="flex flex-wrap items-center gap-1">
+                                {selectedArticle.category && (
+                                    <span className="bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200 text-xs px-2 py-0.5 rounded-full">
+                                        {selectedArticle.category}
+                                    </span>
+                                )}
+                                <span className="text-xs text-gray-500 dark:text-gray-400">
+                                    {new Date(selectedArticle.createdAt).toLocaleDateString('pt-BR')}
+                                </span>
+                            </div>
+                        </div>
+                        
+                        {/* Conteúdo com scroll */}
+                        <div className="flex-1 overflow-y-auto p-3">
+                            <div 
+                                className="prose prose-sm dark:prose-invert max-w-none text-gray-700 dark:text-gray-300"
+                                dangerouslySetInnerHTML={{ __html: selectedArticle.content || '' }}
+                            />
+                        </div>
                     </div>
                 </div>
             )}
@@ -1583,6 +1871,7 @@ const ArtigosPage = () => {
                     </div>
                 </div>
             )}
+            
         </div>
     );
 };
@@ -1668,9 +1957,6 @@ const ProcessosPage = () => {
                                     );
                                 })}
                             </ul>
-                            <button className="w-full mt-6 bg-blue-500 text-white font-semibold py-2 rounded-md hover:bg-blue-600 transition-colors">
-                                Mais Perguntas
-                            </button>
                         </>
                     )}
                 </aside>

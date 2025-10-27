@@ -1,9 +1,11 @@
+// VERSION: v1.1.0 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
 import React, { useState, useEffect } from 'react';
 import { 
   saveUserSession, 
   isAuthorizedDomain, 
   decodeJWT, 
-  initializeGoogleSignIn 
+  initializeGoogleSignIn,
+  registerLoginSession
 } from '../services/auth';
 import { getClientId } from '../config/google-config';
 
@@ -112,6 +114,9 @@ const LoginPage = ({ onLoginSuccess }) => {
 
         // Salvar sessão
         saveUserSession(userData);
+
+        // Registrar login no backend para controle de sessões
+        registerLoginSession(userData);
 
         console.log('Login realizado com sucesso');
         onLoginSuccess(userData);

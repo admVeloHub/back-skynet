@@ -1,6 +1,6 @@
 /**
  * VeloHub V3 - Backend Server
- * VERSION: v2.21.0 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.25.0 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
  */
 
 // ===== FALLBACK PARA TESTES LOCAIS =====
@@ -39,7 +39,7 @@ require('dotenv').config();
 
 // Importar serviços do chatbot
 // VERSION: v2.19.0 | DATE: 2025-01-10 | AUTHOR: VeloHub Development Team
-let aiService, searchService, sessionService, dataCache, userActivityLogger, botFeedbackService, responseFormatter;
+let aiService, searchService, sessionService, dataCache, userActivityLogger, botFeedbackService, responseFormatter, userSessionLogger;
 
 console.log('🔄 Iniciando carregamento de serviços...');
 
@@ -72,6 +72,10 @@ try {
   responseFormatter = require('./services/chatbot/responseFormatter');
   console.log('✅ responseFormatter carregado');
   
+  console.log('📦 Carregando userSessionLogger...');
+  userSessionLogger = require('./services/logging/userSessionLogger');
+  console.log('✅ userSessionLogger carregado');
+  
   console.log('🎉 Todos os serviços carregados com sucesso!');
 } catch (error) {
   console.error('❌ Erro ao carregar serviços:', error.message);
@@ -94,6 +98,18 @@ app.use(cors({
   credentials: true
 }));
 app.use(express.json());
+
+// ===== FUNÇÕES AUXILIARES =====
+
+/**
+ * Converte \n literais em quebras de linha reais
+ * @param {string} text - Texto a ser processado
+ * @returns {string} Texto com quebras de linha convertidas
+ */
+function parseTextContent(text) {
+  if (!text || typeof text !== 'string') return text;
+  return text.replace(/\\n/g, '\n');
+}
 
 // Middleware para garantir que erros sempre retornem JSON
 app.use((err, req, res, next) => {
@@ -261,7 +277,7 @@ app.get('/api/chatbot/test', async (req, res) => {
 // Endpoint para Top 10 FAQ (substitui Google Apps Script)
 app.get('/api/faq/top10', async (req, res) => {
   try {
-    console.log('📋 Buscando Top 10 FAQ do MongoDB...');
+    console.log('📋 Buscando Top 10 FAQ do MongoDB (console_analises.faq_bot)...');
     
     // Tentar conectar ao MongoDB
     const client = await connectToMongo();
@@ -273,30 +289,32 @@ app.get('/api/faq/top10', async (req, res) => {
       });
     }
     
-    const db = client.db('console_conteudo');
-    const botPerguntasCollection = db.collection('Bot_perguntas');
+    const db = client.db('console_analises');
+    const faqBotCollection = db.collection('faq_bot');
     
-    // Buscar todas as perguntas
-    const botPerguntasData = await botPerguntasCollection.find({}).toArray();
+    // Buscar dados do FAQ da coleção console_analises.faq_bot
+    const faqData = await faqBotCollection.findOne({ _id: "faq" });
     
-    if (!botPerguntasData || botPerguntasData.length === 0) {
+    if (!faqData || !faqData.dados || faqData.dados.length === 0) {
+      console.log('⚠️ Nenhum dado encontrado em console_analises.faq_bot');
       return res.json({
         success: true,
         data: []
       });
     }
     
-    // Simular frequência baseada em posição (temporário)
-    // Em produção, isso deveria vir de logs de uso real
-    const top10FAQ = botPerguntasData.slice(0, 10).map((item, index) => ({
-      pergunta: item.pergunta || 'Pergunta não disponível',
-      frequencia: Math.max(100 - (index * 10), 10), // Simular frequência decrescente
-      _id: item._id,
-      palavrasChave: item.palavrasChave || '',
-      sinonimos: item.sinonimos || ''
+    // Converter dados para formato esperado pelo frontend
+    const top10FAQ = faqData.dados.slice(0, 10).map((pergunta, index) => ({
+      pergunta: pergunta || 'Pergunta não disponível',
+      frequencia: Math.max(100 - (index * 10), 10), // Simular frequência decrescente baseada na posição
+      _id: `faq_${index + 1}`, // ID gerado baseado na posição
+      palavrasChave: '', // Campo não disponível na nova estrutura
+      sinonimos: '' // Campo não disponível na nova estrutura
     }));
     
-    console.log(`✅ Top 10 FAQ carregado: ${top10FAQ.length} perguntas`);
+    console.log(`✅ Top 10 FAQ carregado de console_analises.faq_bot: ${top10FAQ.length} perguntas`);
+    console.log(`📊 Total de perguntas no período: ${faqData.totalPerguntas || 'N/A'}`);
+    console.log(`🕒 Última atualização: ${faqData.updatedAt || 'N/A'}`);
     
     res.json({
       success: true,
@@ -353,8 +371,12 @@ app.get('/api/data', async (req, res) => {
       velonews: velonews.map(item => ({
         _id: item._id,
         title: item.title || item.velonews_titulo,
-        content: item.content || item.velonews_conteudo,
+        content: parseTextContent(item.content || item.velonews_conteudo || ''),
         is_critical: item.alerta_critico === 'Y' || item.alerta_critico === true || item.is_critical === 'Y' || item.is_critical === true || item.isCritical === 'Y' || item.isCritical === true ? 'Y' : 'N',
+        solved: (() => {
+          console.log('🔍 BACKEND - item.solved:', item.solved, 'tipo:', typeof item.solved);
+          return item.solved || false;
+        })(),
         createdAt: item.createdAt,
         updatedAt: item.updatedAt
       })),
@@ -362,7 +384,7 @@ app.get('/api/data', async (req, res) => {
       articles: artigos.map(item => ({
         _id: item._id,
         title: item.artigo_titulo,
-        content: item.artigo_conteudo,
+        content: parseTextContent(item.artigo_conteudo || ''),
         category: item.categoria_titulo,
         category_id: item.categoria_id,
         tag: item.tag,
@@ -466,8 +488,12 @@ app.get('/api/velo-news', async (req, res) => {
         _id: item._id,
         // Usando campos padrão do schema
         title: item.titulo ?? '(sem título)',
-        content: item.conteudo ?? '',
+        content: parseTextContent(item.conteudo ?? ''),
         is_critical: item.isCritical === true ? 'Y' : 'N',
+        solved: (() => {
+          console.log('🔍 BACKEND - item.solved:', item.solved, 'tipo:', typeof item.solved);
+          return item.solved || false;
+        })(),
         createdAt,
         updatedAt: item.updatedAt ?? createdAt,
         source: 'Velonews'
@@ -509,7 +535,7 @@ app.get('/api/articles', async (req, res) => {
     const mappedArticles = articles.map(item => ({
       _id: item._id,
       title: item.artigo_titulo,
-      content: item.artigo_conteudo,
+      content: parseTextContent(item.artigo_conteudo || ''),
       category: item.categoria_titulo,
       category_id: item.categoria_id,
       tag: item.tag,
@@ -1240,7 +1266,7 @@ app.post('/api/chatbot/clarification', async (req, res) => {
       // 4. RESPOSTA DIRETA COM ARTIGOS
       const response = {
         success: true,
-        response: responseFormatter.formatCacheResponse(directMatch.resposta || 'Resposta não encontrada', 'clarification'),
+        response: parseTextContent(responseFormatter.formatCacheResponse(directMatch.resposta || 'Resposta não encontrada', 'clarification')),
         source: 'Bot_perguntas',
         sourceId: directMatch._id,
         sourceRow: directMatch.pergunta,
@@ -1277,7 +1303,7 @@ app.post('/api/chatbot/clarification', async (req, res) => {
       
       const response = {
         success: true,
-        response: responseFormatter.formatCacheResponse(searchResults.botPergunta.resposta || 'Resposta não encontrada', 'clarification_fallback'),
+        response: parseTextContent(responseFormatter.formatCacheResponse(searchResults.botPergunta.resposta || 'Resposta não encontrada', 'clarification_fallback')),
         source: 'Bot_perguntas',
         sourceId: searchResults.botPergunta._id,
         sourceRow: searchResults.botPergunta.pergunta,
@@ -1605,7 +1631,7 @@ app.post('/api/chatbot/ask', async (req, res) => {
     
     if (aiResponse.success) {
       // Aplicar formatação da resposta da IA
-      finalResponse = responseFormatter.formatAIResponse(aiResponse.response, aiResponse.provider);
+      finalResponse = parseTextContent(responseFormatter.formatAIResponse(aiResponse.response, aiResponse.provider));
       responseSource = aiResponse.source;
       aiProvider = aiResponse.provider;
       console.log(`✅ PONTO 1: Resposta da IA processada e formatada com sucesso (${aiProvider})`);
@@ -1613,18 +1639,18 @@ app.post('/api/chatbot/ask', async (req, res) => {
       // Fallback para resposta direta do Bot_perguntas se IA falhar
       if (botPerguntasData.length > 0) {
         // Aplicar formatação da resposta do Bot_perguntas
-        finalResponse = responseFormatter.formatCacheResponse(botPerguntasData[0].resposta || 'Resposta encontrada na base de conhecimento.', 'bot_perguntas');
+        finalResponse = parseTextContent(responseFormatter.formatCacheResponse(botPerguntasData[0].resposta || 'Resposta encontrada na base de conhecimento.', 'bot_perguntas'));
         responseSource = 'bot_perguntas';
         console.log('✅ PONTO 1: Usando resposta direta do Bot_perguntas formatada (fallback)');
       } else {
         if (shouldUseLocalFallback()) {
           // Aplicar formatação do fallback local
-          finalResponse = responseFormatter.formatFallbackResponse(FALLBACK_FOR_LOCAL_TESTING.resposta);
+          finalResponse = parseTextContent(responseFormatter.formatFallbackResponse(FALLBACK_FOR_LOCAL_TESTING.resposta));
           responseSource = 'local_fallback';
           console.log('🧪 PONTO 1: Usando fallback formatado para teste local');
         } else {
           // Aplicar formatação da resposta padrão
-          finalResponse = responseFormatter.formatFallbackResponse('Não consegui encontrar uma resposta precisa para sua pergunta. Pode fornecer mais detalhes?');
+          finalResponse = parseTextContent(responseFormatter.formatFallbackResponse('Não consegui encontrar uma resposta precisa para sua pergunta. Pode fornecer mais detalhes?'));
           responseSource = 'no_results';
           console.log('❌ PONTO 1: Nenhuma resposta encontrada - usando fallback formatado');
         }
@@ -1931,7 +1957,7 @@ app.post('/api/chatbot/ai-response', async (req, res) => {
     // Resposta de sucesso
     const responseData = {
       success: true,
-      response: responseFormatter.formatAIResponse(aiResult.response, aiResult.provider),
+      response: parseTextContent(responseFormatter.formatAIResponse(aiResult.response, aiResult.provider)),
       aiProvider: aiResult.provider,
       model: aiResult.model,
       source: 'ai_button',
@@ -1955,6 +1981,190 @@ app.post('/api/chatbot/ai-response', async (req, res) => {
   }
 });
 
+// ===== API DE SESSÕES DE LOGIN/LOGOUT =====
+
+// POST /api/auth/session/login
+app.post('/api/auth/session/login', async (req, res) => {
+  try {
+    const { colaboradorNome, userEmail } = req.body;
+    const ipAddress = req.ip || req.connection.remoteAddress;
+    const userAgent = req.get('User-Agent');
+
+    // Validação
+    if (!colaboradorNome || !userEmail) {
+      return res.status(400).json({
+        success: false,
+        error: 'colaboradorNome e userEmail são obrigatórios'
+      });
+    }
+
+    console.log(`🔐 Login: Novo login de ${colaboradorNome} (${userEmail})`);
+
+    // Registrar login
+    const result = await userSessionLogger.logLogin(
+      colaboradorNome,
+      userEmail,
+      ipAddress,
+      userAgent
+    );
+
+    if (!result.success) {
+      return res.status(500).json({
+        success: false,
+        error: 'Erro ao registrar login',
+        details: result.error
+      });
+    }
+
+    // Resposta de sucesso
+    res.json({
+      success: true,
+      sessionId: result.sessionId,
+      message: 'Login registrado com sucesso'
+    });
+
+  } catch (error) {
+    console.error('❌ Login Error:', error.message);
+    
+    res.status(500).json({
+      success: false,
+      error: 'Erro interno do servidor',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// POST /api/auth/session/logout
+app.post('/api/auth/session/logout', async (req, res) => {
+  try {
+    const { sessionId } = req.body;
+
+    // Validação
+    if (!sessionId) {
+      return res.status(400).json({
+        success: false,
+        error: 'sessionId é obrigatório'
+      });
+    }
+
+    console.log(`🚪 Logout: Logout da sessão ${sessionId}`);
+
+    // Registrar logout
+    const result = await userSessionLogger.logLogout(sessionId);
+
+    if (!result.success) {
+      return res.status(400).json({
+        success: false,
+        error: result.error
+      });
+    }
+
+    // Resposta de sucesso
+    res.json({
+      success: true,
+      duration: result.duration,
+      colaboradorNome: result.colaboradorNome,
+      message: 'Logout registrado com sucesso'
+    });
+
+  } catch (error) {
+    console.error('❌ Logout Error:', error.message);
+    
+    res.status(500).json({
+      success: false,
+      error: 'Erro interno do servidor',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// ===== API VELONEWS - ACKNOWLEDGE =====
+
+// POST /api/velo-news/:id/acknowledge
+app.post('/api/velo-news/:id/acknowledge', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { userId, userName } = req.body;
+
+    // Validação
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        error: 'userId é obrigatório'
+      });
+    }
+
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        error: 'ID da notícia é obrigatório'
+      });
+    }
+
+    console.log(`📝 Acknowledge: Usuário ${userName} (${userId}) confirmou leitura da notícia ${id}`);
+
+    // Conectar ao MongoDB
+    if (!client) {
+      return res.status(503).json({
+        success: false,
+        error: 'MongoDB não configurado'
+      });
+    }
+
+    await connectToMongo();
+    const db = client.db('console_conteudo');
+    const collection = db.collection('velonews_acknowledgments');
+
+    // Verificar se já existe acknowledge para esta notícia e usuário
+    const existingAck = await collection.findOne({
+      newsId: new ObjectId(id),
+      userEmail: userId
+    });
+
+    if (existingAck) {
+      return res.status(409).json({
+        success: false,
+        error: 'Notícia já foi confirmada por este usuário'
+      });
+    }
+
+    // Criar registro de acknowledge
+    const acknowledgeData = {
+      newsId: new ObjectId(id),
+      colaboradorNome: userName || 'Usuário',
+      userEmail: userId,
+      acknowledgedAt: new Date(),
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+
+    const result = await collection.insertOne(acknowledgeData);
+
+    if (result.insertedId) {
+      console.log(`✅ Acknowledge registrado: ${result.insertedId}`);
+      
+      res.json({
+        success: true,
+        message: 'Leitura confirmada com sucesso',
+        acknowledgeId: result.insertedId
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: 'Erro ao registrar acknowledge'
+      });
+    }
+
+  } catch (error) {
+    console.error('❌ Acknowledge Error:', error.message);
+    
+    res.status(500).json({
+      success: false,
+      error: 'Erro interno do servidor',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
 
 // Iniciar servidor
 console.log('🔄 Iniciando servidor...');

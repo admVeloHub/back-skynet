@@ -1,5 +1,7 @@
 // Sistema de Autenticação Centralizado para VeloHub
+// VERSION: v1.1.0 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
 import { GOOGLE_CONFIG } from '../config/google-config';
+import { API_BASE_URL } from '../config/api-config';
 
 console.log('=== auth.js carregado ===');
 
@@ -19,6 +21,37 @@ function saveUserSession(userData) {
     };
     localStorage.setItem(USER_SESSION_KEY, JSON.stringify(sessionData));
     console.log('Sessão salva:', sessionData);
+}
+
+/**
+ * Registra login no backend para controle de sessões
+ * @param {object} userData - Objeto com dados do usuário (name, email, picture).
+ */
+async function registerLoginSession(userData) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/auth/session/login`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                colaboradorNome: userData.name,
+                userEmail: userData.email
+            })
+        });
+
+        const result = await response.json();
+        
+        if (result.success) {
+            // Salvar sessionId no localStorage
+            localStorage.setItem('velohub_session_id', result.sessionId);
+            console.log('✅ Login registrado no backend:', result.sessionId);
+        } else {
+            console.error('❌ Erro ao registrar login:', result.error);
+        }
+    } catch (error) {
+        console.error('❌ Erro ao registrar login:', error);
+    }
 }
 
 /**
@@ -49,8 +82,42 @@ function isSessionValid() {
 /**
  * Realiza o logout do usuário.
  */
+/**
+ * Registra logout no backend para controle de sessões
+ */
+async function registerLogoutSession() {
+    try {
+        const sessionId = localStorage.getItem('velohub_session_id');
+        
+        if (sessionId) {
+            const response = await fetch(`${API_BASE_URL}/auth/session/logout`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ sessionId })
+            });
+
+            const result = await response.json();
+            
+            if (result.success) {
+                console.log('✅ Logout registrado:', result.duration + ' min');
+            }
+            
+            // Limpar sessionId
+            localStorage.removeItem('velohub_session_id');
+        }
+    } catch (error) {
+        console.error('❌ Erro ao registrar logout:', error);
+    }
+}
+
 function logout() {
     console.log('Logout realizado');
+    
+    // Registrar logout no backend antes de limpar localStorage
+    registerLogoutSession();
+    
     localStorage.removeItem(USER_SESSION_KEY);
     // Limpar também os dados antigos para compatibilidade
     localStorage.removeItem('userEmail');
@@ -203,8 +270,15 @@ export {
     checkAuthenticationState,
     isAuthorizedDomain,
     decodeJWT,
-    initializeGoogleSignIn
+    initializeGoogleSignIn,
+    registerLoginSession,
+    registerLogoutSession
 };
+
+// Listener para logout automático ao fechar página/navegador
+window.addEventListener('beforeunload', () => {
+    registerLogoutSession();
+});
 
 // Também disponibilizar globalmente para compatibilidade
 window.saveUserSession = saveUserSession;

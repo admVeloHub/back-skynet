@@ -1,5 +1,5 @@
 // Text Formatter Utility - Sistema de formatação de texto para o frontend
-// VERSION: v1.0.0 | DATE: 2024-12-19 | AUTHOR: VeloHub Development Team
+// VERSION: v1.0.1 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
 
 /**
  * Formata texto de resposta do chatbot
@@ -12,7 +12,6 @@ export const formatResponseText = (text, source = 'unknown') => {
     return text || '';
   }
 
-  console.log(`🔧 TextFormatter: Formatando texto (${source}) - ${text.length} chars`);
   
   let formattedText = text;
 
@@ -37,7 +36,6 @@ export const formatResponseText = (text, source = 'unknown') => {
   // 7. Limpar formatação excessiva
   formattedText = cleanExcessiveFormatting(formattedText);
 
-  console.log(`✅ TextFormatter: Texto formatado (${formattedText.length} chars)`);
   
   return formattedText;
 };
@@ -64,7 +62,6 @@ const formatJsonArrays = (text) => {
         return text;
       }
     } catch (error) {
-      console.warn('⚠️ Erro ao parsear JSON:', error);
       // Se não conseguir parsear, tentar limpar manualmente
       return text.replace(/\[|\]|\{|\}/g, '').replace(/"/g, '').trim();
     }
@@ -253,7 +250,6 @@ export const testTextFormatting = () => {
     };
   });
 
-  console.log('🧪 TextFormatter: Testes de formatação:', results);
   
   return {
     total: testCases.length,
