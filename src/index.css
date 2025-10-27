@@ -478,9 +478,15 @@ code {
 /* ============================================= */
 
 .solved-news-frame {
-  opacity: 0.6;
-  border-color: #4CAF50 !important;
-  background-color: rgba(76, 175, 80, 0.05);
+  opacity: 1;
+  border: 2px solid #4CAF50 !important;
+  border-radius: 12px !important;
+  background-color: rgba(76, 175, 80, 0.1);
+  padding: 16px !important;
+  margin: 8px 0 !important;
+  box-shadow: 0 4px 20px rgba(76, 175, 80, 0.3) !important;
+  position: relative;
+  overflow: hidden;
 }
 
 .solved-badge {
@@ -503,6 +509,8 @@ code {
 /* Dark theme para solved */
 .dark .solved-news-frame {
   background-color: rgba(76, 175, 80, 0.1);
+  border-color: rgba(76, 175, 80, 0.6) !important;
+  box-shadow: 0 4px 20px rgba(76, 175, 80, 0.1) !important;
 }
 
 .dark .solved-news-content {

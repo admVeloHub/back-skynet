@@ -12,7 +12,7 @@ import { API_BASE_URL } from '../config/api-config';
 console.log('🔧 Chatbot - API_BASE_URL:', API_BASE_URL);
 
 // Componente do Chatbot Inteligente - Mantendo Layout Original
-// VERSION: v1.9.0 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
+// VERSION: v1.10.0 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
 const Chatbot = ({ prompt }) => {
     const [messages, setMessages] = useState([]);
     const [inputValue, setInputValue] = useState('');
@@ -363,7 +363,8 @@ const Chatbot = ({ prompt }) => {
             .map(line => line.trim())
             .join('\n')
             .replace(/^\n+/, '')
-            .replace(/\n+$/, '');
+            .replace(/\n+$/, '')
+            .replace(/\n/g, '<br>'); // Converter quebras de linha para HTML
         
         // 5. Formatar markdown básico
         cleanText = cleanText
@@ -811,7 +812,7 @@ const Chatbot = ({ prompt }) => {
                                         {backgroundColor: 'var(--cor-container)', color: 'var(--cor-texto-principal)', border: '1px solid var(--cor-borda)'}
                                      }>
                                     {/* Texto principal */}
-                                    <p>{msg.text}</p>
+                                    <div dangerouslySetInnerHTML={{ __html: formatResponseText(msg.text, 'bot') }} />
                                     
                                     {/* Ícones de feedback e IA em linha separada */}
                                     <div className="flex justify-between items-center mt-2">

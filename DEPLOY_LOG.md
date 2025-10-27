@@ -150,6 +150,25 @@
 - **Descrição**: Melhorias nos botões e FAQ conforme solicitado. Botão "Ver Notícias Anteriores" removida contagem de notícias restantes, aplicada identidade visual com gradiente azul, sombra e efeitos hover. Botão "Mais Perguntas" removido do FAQ do bot. Interface mais limpa e consistente com a identidade visual do VeloHub.
 - **Status**: ✅ Concluído com sucesso
 
+### **GitHub Push - Reorganização Completa da Homepage e Melhorias v2.1.4**
+- **Data/Hora**: 2025-01-31 00:30:00
+- **Tipo**: GitHub Push
+- **Versão**: Múltiplas - Reorganização Completa
+- **Commit**: 01f6abd
+- **Arquivos Modificados**:
+  - `src/App_v2-1.js` (v2.1.4 - reorganização homepage completa)
+  - `backend/server.js` (v2.25.0 - correção FAQ)
+  - `listagem de schema de coleções do mongoD.rb` (v1.11.0 - documentação)
+  - `DEPLOY_LOG.md` (atualização logs)
+  - `src/components/NewsHistoryModal.js` (novo componente)
+  - `backend/services/logging/userSessionLogger.js` (novo serviço)
+  - `PLANO_MELHORIAS_VELONEWS.md` (novo plano)
+  - `remove-env.bat` (novo script)
+- **Arquivos Removidos**:
+  - `ultado Sistema sempre encontrar uma resposta relevante, mesmo que não seja perfeita` (arquivo corrompido)
+- **Descrição**: Push completo com todas as melhorias implementadas. Reorganização completa da homepage conforme plano, títulos clicáveis no widget Recentes, modal de artigos otimizado, botões com identidade visual, FAQ corrigido para console_analises.faq_bot, documentação atualizada. Sistema totalmente funcional e otimizado.
+- **Status**: ✅ Push realizado com sucesso
+
 - **Descrição**: 
   - Reorganização completa do layout da homepage
   - Widget Serviços adicionado no topo da sidebar esquerda com status dos módulos

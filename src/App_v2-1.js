@@ -1,6 +1,6 @@
 /**
  * VeloHub V3 - Main Application Component
- * VERSION: v2.1.4 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.1.6 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
  */
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -1113,8 +1113,9 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews 
                             
                             return (
                                 <div key={news._id} className={`${
-                                    news.is_critical === 'Y' && !shouldRemoveHighlight ? 'critical-news-frame' : 'border-b dark:border-gray-700 pb-4 last:border-b-0'
-                                } ${isSolved ? 'solved-news-frame' : ''}`}>
+                                    isSolved ? 'solved-news-frame' : 
+                                    (news.is_critical === 'Y' && !shouldRemoveHighlight ? 'critical-news-frame' : 'border-b dark:border-gray-700 pb-4 last:border-b-0')
+                                }`} style={isSolved ? {opacity: 1} : {}}>
                                     <div className="flex justify-between items-start mb-2">
                                         <h3 className="font-semibold text-lg text-gray-800 dark:text-gray-200">
                                             {news.title}
