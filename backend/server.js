@@ -1,6 +1,6 @@
 /**
  * VeloHub V3 - Backend Server
- * VERSION: v2.26.3 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.27.0 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
  */
 
 // ===== FALLBACK PARA TESTES LOCAIS =====
@@ -2584,9 +2584,18 @@ app.post('/api/support/tk-conteudos', async (req, res) => {
     const nextNumber = lastDoc.length > 0 ? parseInt(lastDoc[0]._id.split('-')[1]) + 1 : 1;
     const newId = `TKC-${String(nextNumber).padStart(6, '0')}`;
     
+    // Transformar _corpo em array de mensagens
+    const corpoArray = Array.isArray(req.body._corpo) ? req.body._corpo : [{
+      autor: 'user',
+      userName: req.body._userName || 'Usuário',
+      timestamp: new Date(),
+      mensagem: req.body._corpo || ''
+    }];
+
     const ticketData = {
       _id: newId,
       ...req.body,
+      _corpo: corpoArray,
       _statusHub: 'pendente',      // NOVO: valor padrão
       _statusConsole: 'novo',      // NOVO: valor padrão
       _lastUpdatedBy: 'user',      // NOVO: valor padrão
@@ -2625,9 +2634,18 @@ app.post('/api/support/tk-gestao', async (req, res) => {
     const nextNumber = lastDoc.length > 0 ? parseInt(lastDoc[0]._id.split('-')[1]) + 1 : 1;
     const newId = `TKG-${String(nextNumber).padStart(6, '0')}`;
     
+    // Transformar _corpo em array de mensagens
+    const corpoArray = Array.isArray(req.body._corpo) ? req.body._corpo : [{
+      autor: 'user',
+      userName: req.body._userName || 'Usuário',
+      timestamp: new Date(),
+      mensagem: req.body._corpo || ''
+    }];
+
     const ticketData = {
       _id: newId,
       ...req.body,
+      _corpo: corpoArray,
       _statusHub: 'pendente',      // NOVO: valor padrão
       _statusConsole: 'novo',      // NOVO: valor padrão
       _lastUpdatedBy: 'user',      // NOVO: valor padrão
@@ -2640,6 +2658,172 @@ app.post('/api/support/tk-gestao', async (req, res) => {
     res.json({ success: true, ticketId: newId });
   } catch (error) {
     console.error('❌ Erro ao criar ticket tk_gestão:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erro interno do servidor'
+    });
+  }
+});
+
+// UPDATE - Atualizar ticket de conteúdo
+app.put('/api/support/tk-conteudos', async (req, res) => {
+  try {
+    console.log('🔍 DEBUG: Endpoint PUT /api/support/tk-conteudos chamado');
+    console.log('🔍 DEBUG: Body recebido:', req.body);
+    
+    const { _id, _corpo } = req.body;
+    
+    if (!_id) {
+      return res.status(400).json({
+        success: false,
+        error: '_id é obrigatório'
+      });
+    }
+    
+    if (!_id.startsWith('TKC-')) {
+      return res.status(400).json({
+        success: false,
+        error: 'ID deve iniciar com TKC- para tickets de conteúdo'
+      });
+    }
+
+    if (!client) {
+      return res.status(503).json({
+        success: false,
+        error: 'MongoDB não configurado'
+      });
+    }
+
+    await connectToMongo();
+    const db = client.db('console_chamados');
+    const collection = db.collection('tk_conteudos');
+    
+    // Buscar ticket existente
+    const ticket = await collection.findOne({ _id });
+    if (!ticket) {
+      return res.status(404).json({
+        success: false,
+        error: 'Ticket não encontrado'
+      });
+    }
+
+    // Extrair nova mensagem do array _corpo (última mensagem)
+    const novaMensagem = _corpo[_corpo.length - 1];
+    
+    if (!novaMensagem || !novaMensagem.mensagem) {
+      return res.status(400).json({
+        success: false,
+        error: 'Nova mensagem é obrigatória'
+      });
+    }
+
+    // Atualizar ticket
+    const result = await collection.updateOne(
+      { _id },
+      {
+        $push: { _corpo: novaMensagem },
+        $set: {
+          _statusHub: 'pendente',
+          _statusConsole: 'aberto',
+          _lastUpdatedBy: 'user',
+          updatedAt: new Date()
+        }
+      }
+    );
+
+    if (result.modifiedCount === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Falha ao atualizar ticket'
+      });
+    }
+
+    res.json({ success: true, message: 'Ticket atualizado com sucesso' });
+  } catch (error) {
+    console.error('❌ Erro ao atualizar ticket de conteúdo:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erro interno do servidor'
+    });
+  }
+});
+
+// UPDATE - Atualizar ticket de gestão
+app.put('/api/support/tk-gestao', async (req, res) => {
+  try {
+    console.log('🔍 DEBUG: Endpoint PUT /api/support/tk-gestao chamado');
+    console.log('🔍 DEBUG: Body recebido:', req.body);
+    
+    const { _id, _corpo } = req.body;
+    
+    if (!_id) {
+      return res.status(400).json({
+        success: false,
+        error: '_id é obrigatório'
+      });
+    }
+    
+    if (!_id.startsWith('TKG-')) {
+      return res.status(400).json({
+        success: false,
+        error: 'ID deve iniciar com TKG- para tickets de gestão'
+      });
+    }
+
+    if (!client) {
+      return res.status(503).json({
+        success: false,
+        error: 'MongoDB não configurado'
+      });
+    }
+
+    await connectToMongo();
+    const db = client.db('console_chamados');
+    const collection = db.collection('tk_gestão');
+    
+    // Buscar ticket existente
+    const ticket = await collection.findOne({ _id });
+    if (!ticket) {
+      return res.status(404).json({
+        success: false,
+        error: 'Ticket não encontrado'
+      });
+    }
+
+    // Extrair nova mensagem do array _corpo (última mensagem)
+    const novaMensagem = _corpo[_corpo.length - 1];
+    
+    if (!novaMensagem || !novaMensagem.mensagem) {
+      return res.status(400).json({
+        success: false,
+        error: 'Nova mensagem é obrigatória'
+      });
+    }
+
+    // Atualizar ticket
+    const result = await collection.updateOne(
+      { _id },
+      {
+        $push: { _corpo: novaMensagem },
+        $set: {
+          _statusHub: 'pendente',
+          _statusConsole: 'aberto',
+          _lastUpdatedBy: 'user',
+          updatedAt: new Date()
+        }
+      }
+    );
+
+    if (result.modifiedCount === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Falha ao atualizar ticket'
+      });
+    }
+
+    res.json({ success: true, message: 'Ticket atualizado com sucesso' });
+  } catch (error) {
+    console.error('❌ Erro ao atualizar ticket de gestão:', error);
     res.status(500).json({
       success: false,
       error: 'Erro interno do servidor'
@@ -2728,48 +2912,6 @@ app.get('/api/support/ticket/:id', async (req, res) => {
   }
 });
 
-// UPDATE - Atualizar ticket
-app.put('/api/support/ticket/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    
-    if (!client) {
-      return res.status(503).json({
-        success: false,
-        error: 'MongoDB não configurado'
-      });
-    }
-
-    await connectToMongo();
-    const db = client.db('console_chamados');
-    const collection = id.startsWith('TKC-') ? 'tk_conteudos' : 'tk_gestão';
-    
-    const updateData = {
-      ...req.body,
-      updatedAt: new Date()
-    };
-    
-    const result = await db.collection(collection).updateOne(
-      { _id: id },
-      { $set: updateData }
-    );
-    
-    if (result.matchedCount === 0) {
-      return res.status(404).json({
-        success: false,
-        error: 'Ticket não encontrado'
-      });
-    }
-    
-    res.json({ success: true });
-  } catch (error) {
-    console.error('❌ Erro ao atualizar ticket:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Erro interno do servidor'
-    });
-  }
-});
 
 // DELETE - Excluir ticket
 app.delete('/api/support/ticket/:id', async (req, res) => {

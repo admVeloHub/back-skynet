@@ -1,5 +1,5 @@
 # 📋 DEPLOY LOG - VeloHub V3
-<!-- VERSION: v1.1.0 | DATE: 2024-12-19 | AUTHOR: VeloHub Development Team -->
+<!-- VERSION: v1.1.1 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team -->
 
 ## 🔐 Configuração de Ambiente GCP
 
@@ -1492,6 +1492,73 @@
 - **Status**: ✅ Push realizado com sucesso
 
 
+
+### **GitHub Push - Correção Formatação Bot e Notícias Resolvidas**
+
+- **Data/Hora**: 2025-01-30 16:15:00
+
+- **Tipo**: GitHub Push
+
+- **Versão**: App_v2-1.js v2.1.6, Chatbot.js v1.10.0
+
+- **Commit**: e0f073c
+
+- **Arquivos Modificados**:
+
+  - `src/App_v2-1.js` (v2.1.6 - correção sobreposição cores, opacidade sólida)
+
+  - `src/components/Chatbot.js` (v1.10.0 - formatação texto bot)
+
+  - `src/index.css` (melhoria estilos notícias resolvidas)
+
+- **Descrição**: Correção completa de problemas de formatação e visualização. Corrigida sobreposição de cores entre notícias críticas e resolvidas, aumentada opacidade de notícias resolvidas para sólido, melhorada moldura verde com bordas e sombras. Corrigida formatação de mensagens do bot para processar corretamente JSON arrays, quebras de linha e markdown, convertendo \n para <br> HTML. Sistema agora exibe respostas do bot formatadas corretamente com parágrafos separados e texto em negrito.
+
+- **Status**: ✅ Push realizado com sucesso
+
+---
+
+## 📅 2025-01-30 19:15 - Sistema de Status Dual para Tickets
+
+- **Tipo**: GitHub Push
+
+- **Versão**: backend/server.js v2.26.3, schema v1.12.1
+
+- **Commit**: 83cd4fa
+
+- **Arquivos Modificados**:
+
+  - `backend/server.js` (v2.26.3 - sistema de status dual, correção middleware, logs debug)
+
+  - `listagem de schema de coleções do mongoD.rb` (v1.12.1 - campos de status, documentação)
+
+  - `SISTEMA_TICKETS_STATUS_ENDPOINTS.md` (v1.0.0 - documentação completa do sistema)
+
+  - `backend/config-local.js` (v1.0.0 - configuração local para testes)
+
+- **Descrição**: Implementação completa do sistema de status dual para tickets de apoio. Adicionados campos _statusHub, _statusConsole e _lastUpdatedBy nos schemas tk_gestão e tk_conteudos. Implementados valores padrão de status na criação de tickets. Corrigida ordem do middleware express.static no backend. Adicionados logs de debug para rastreamento de endpoints. Criada documentação completa do sistema de status e endpoints. Sistema pronto para deploy e testes.
+
+- **Status**: ✅ Push realizado com sucesso
+
+### **GitHub Push - Correção Configuração API para Usar Apenas URL Online**
+- **Data/Hora**: 2024-12-19 19:00:00
+- **Tipo**: GitHub Push
+- **Versão**: api-config.js v1.0.3
+- **Commit**: [Pendente]
+- **Arquivos Modificados**:
+  - `src/config/api-config.js` (v1.0.3 - remoção localhost:8080, apenas URL online)
+- **Descrição**: Correção crítica da configuração da API para usar apenas a URL online, mesmo em desenvolvimento. Removida lógica que usava localhost:8080 em desenvolvimento, agora sempre usa https://velohub-278491073220.us-east1.run.app/api. Resolve problema de inconsistência entre desenvolvimento e produção, garantindo que todas as chamadas de API usem o mesmo endpoint online.
+- **Status**: ✅ Concluído com sucesso
+
+### **GitHub Push - Refatoração Endpoints Apoio v2.27.0**
+- **Data/Hora**: 2024-12-19 19:30:00
+- **Tipo**: GitHub Push
+- **Versão**: backend/server.js v2.27.0, App_v2-1.js v2.1.65
+- **Commit**: [Pendente]
+- **Arquivos Modificados**:
+  - `backend/server.js` (v2.27.0 - refatoração endpoints PUT)
+  - `src/App_v2-1.js` (v2.1.65 - atualização função handleSendReply)
+- **Descrição**: Refatoração completa dos endpoints de atualização de tickets conforme especificação. Removidos endpoints genéricos `PUT /api/support/ticket/:id` e `PUT /api/support/ticket/:id/reply`. Implementados endpoints específicos `PUT /api/support/tk-conteudos` e `PUT /api/support/tk-gestao` com validação de prefixo do ID. Atualizada função handleSendReply no frontend para usar endpoint correto baseado no prefixo do ID. Implementada lógica correta de atualização preservando campos originais e atualizando status conforme especificado (_statusHub: 'pendente', _statusConsole: 'aberto').
+- **Status**: ✅ Concluído com sucesso
 
 *Log atualizado automaticamente após push para GitHub*
 
