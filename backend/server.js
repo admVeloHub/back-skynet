@@ -1,6 +1,6 @@
 /**
  * VeloHub V3 - Backend Server
- * VERSION: v2.29.0 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.31.3 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
  */
 
 // ===== FALLBACK PARA TESTES LOCAIS =====
@@ -34,7 +34,7 @@ console.log(`- PORT: ${process.env.PORT}`);
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-const { MongoClient } = require('mongodb');
+const { MongoClient, ObjectId } = require('mongodb');
 // Carregar variáveis de ambiente
 require('dotenv').config();
 
@@ -88,8 +88,24 @@ try {
   process.exit(1);
 }
 
+// Carregar config para verificação de configurações WhatsApp
+const config = require('./config');
+
+// Log de configurações WhatsApp (apenas em desenvolvimento)
+if (process.env.NODE_ENV === 'development') {
+  console.log('📱 Configurações WhatsApp:');
+  console.log('   - WHATSAPP_API_URL:', config.WHATSAPP_API_URL ? '✅ Configurado' : '❌ Não configurado');
+  console.log('   - WHATSAPP_DEFAULT_JID:', config.WHATSAPP_DEFAULT_JID ? '✅ Configurado' : '❌ Não configurado');
+  if (config.WHATSAPP_API_URL) {
+    console.log('   - URL:', config.WHATSAPP_API_URL);
+  }
+  if (config.WHATSAPP_DEFAULT_JID) {
+    console.log('   - JID:', config.WHATSAPP_DEFAULT_JID);
+  }
+}
+
 const app = express();
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT || 8090;
 
 // Middleware
 app.use(cors({
@@ -97,7 +113,8 @@ app.use(cors({
     'https://app.velohub.velotax.com.br', // NOVO DOMÍNIO PERSONALIZADO
     process.env.CORS_ORIGIN || 'https://velohub-278491073220.us-east1.run.app',
     'http://localhost:3000',
-    'http://localhost:5000'
+    'http://localhost:5000',
+    'http://localhost:8080'
   ],
   credentials: true
 }));
@@ -2082,6 +2099,156 @@ app.post('/api/auth/session/logout', async (req, res) => {
   }
 });
 
+// ===== API DE SESSÃO - HEARTBEAT E REATIVAÇÃO =====
+console.log('🔧 Registrando endpoints de sessão (heartbeat, reactivate, validate)...');
+
+// POST /api/auth/session/heartbeat
+app.post('/api/auth/session/heartbeat', async (req, res) => {
+  try {
+    const { sessionId } = req.body;
+
+    // Validação
+    if (!sessionId) {
+      return res.status(400).json({
+        success: false,
+        error: 'sessionId é obrigatório'
+      });
+    }
+
+    // Atualizar sessão (heartbeat)
+    const result = await userSessionLogger.updateSession(sessionId);
+
+    if (result.expired) {
+      return res.status(401).json({
+        success: false,
+        expired: true,
+        error: 'Sessão expirada (4 horas) - novo login necessário'
+      });
+    }
+
+    if (!result.success) {
+      return res.status(400).json({
+        success: false,
+        expired: false,
+        error: result.error || 'Erro ao atualizar sessão'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Heartbeat recebido'
+    });
+
+  } catch (error) {
+    console.error('❌ Heartbeat Error:', error.message);
+    console.error('Stack:', error.stack);
+    
+    res.status(500).json({
+      success: false,
+      error: 'Erro interno do servidor',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+console.log('✅ Endpoint POST /api/auth/session/heartbeat registrado');
+
+// POST /api/auth/session/reactivate
+app.post('/api/auth/session/reactivate', async (req, res) => {
+  try {
+    const { userEmail } = req.body;
+
+    // Validação
+    if (!userEmail) {
+      return res.status(400).json({
+        success: false,
+        error: 'userEmail é obrigatório'
+      });
+    }
+
+    console.log(`🔄 Reativação: Tentando reativar sessão de ${userEmail}`);
+
+    // Reativar sessão
+    const result = await userSessionLogger.reactivateSession(userEmail);
+
+    if (result.expired) {
+      return res.status(401).json({
+        success: false,
+        expired: true,
+        error: 'Sessão expirada (4 horas) - novo login necessário'
+      });
+    }
+
+    if (!result.success) {
+      return res.status(400).json({
+        success: false,
+        expired: false,
+        error: result.error || 'Erro ao reativar sessão'
+      });
+    }
+
+    res.json({
+      success: true,
+      sessionId: result.sessionId,
+      message: 'Sessão reativada com sucesso'
+    });
+
+  } catch (error) {
+    console.error('❌ Reactivate Error:', error.message);
+    
+    res.status(500).json({
+      success: false,
+      error: 'Erro interno do servidor',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// GET /api/auth/session/validate
+app.get('/api/auth/session/validate/:sessionId', async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+
+    if (!sessionId) {
+      return res.status(400).json({
+        success: false,
+        error: 'sessionId é obrigatório'
+      });
+    }
+
+    const result = await userSessionLogger.validateSession(sessionId);
+
+    res.json({
+      success: true,
+      valid: result.valid,
+      expired: result.expired,
+      session: result.session ? {
+        sessionId: result.session.sessionId,
+        userEmail: result.session.userEmail,
+        colaboradorNome: result.session.colaboradorNome,
+        isActive: result.session.isActive,
+        loginTimestamp: result.session.loginTimestamp
+      } : null
+    });
+
+  } catch (error) {
+    console.error('❌ Validate Error:', error.message);
+    
+    res.status(500).json({
+      success: false,
+      error: 'Erro interno do servidor',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+console.log('✅ Endpoint GET /api/auth/session/validate/:sessionId registrado');
+console.log('✅ Todos os endpoints de sessão registrados com sucesso!');
+console.log('📋 Endpoints de sessão disponíveis:');
+console.log('   - POST /api/auth/session/heartbeat');
+console.log('   - POST /api/auth/session/reactivate');
+console.log('   - GET /api/auth/session/validate/:sessionId');
+
 // ===== API VELONEWS - ACKNOWLEDGE =====
 
 // POST /api/velo-news/:id/acknowledge
@@ -3055,6 +3222,53 @@ app.get('/api/support/stats/admin', async (req, res) => {
 
 console.log('✅ Rotas do módulo Apoio registradas com sucesso!');
 console.log('📋 Rotas disponíveis: POST /api/support/tk-conteudos, POST /api/support/tk-gestao');
+
+// ===== API PARA MÓDULO ESCALAÇÕES =====
+console.log('🔧 Registrando rotas do módulo Escalações...');
+
+try {
+  console.log('📦 Carregando módulos de Escalações...');
+  const initSolicitacoesRoutes = require('./routes/api/escalacoes/solicitacoes');
+  const initErrosBugsRoutes = require('./routes/api/escalacoes/erros-bugs');
+  const initLogsRoutes = require('./routes/api/escalacoes/logs');
+  const createEscalacoesIndexes = require('./routes/api/escalacoes/indexes');
+  console.log('✅ Módulos carregados com sucesso');
+
+  console.log('🔧 Inicializando routers...');
+  // Registrar rotas
+  const solicitacoesRouter = initSolicitacoesRoutes(client, connectToMongo, { userActivityLogger });
+  const errosBugsRouter = initErrosBugsRoutes(client, connectToMongo, { userActivityLogger });
+  const logsRouter = initLogsRoutes(client, connectToMongo);
+  console.log('✅ Routers inicializados');
+
+  console.log('🔗 Registrando rotas no Express...');
+  app.use('/api/escalacoes/solicitacoes', solicitacoesRouter);
+  app.use('/api/escalacoes/erros-bugs', errosBugsRouter);
+  app.use('/api/escalacoes/logs', logsRouter);
+  console.log('✅ Rotas registradas no Express');
+
+  // Criar índices MongoDB (em background, não bloqueia startup)
+  setTimeout(async () => {
+    try {
+      console.log('📊 Criando índices MongoDB para Escalações...');
+      await createEscalacoesIndexes(client, connectToMongo);
+      console.log('✅ Índices criados com sucesso');
+    } catch (error) {
+      console.error('❌ Erro ao criar índices de Escalações:', error);
+      console.error('Stack:', error.stack);
+    }
+  }, 3000);
+
+  console.log('✅ Rotas do módulo Escalações registradas com sucesso!');
+  console.log('📋 Rotas disponíveis:');
+  console.log('   - GET/POST/PUT/DELETE /api/escalacoes/solicitacoes');
+  console.log('   - GET/POST /api/escalacoes/erros-bugs');
+  console.log('   - GET/POST /api/escalacoes/logs');
+} catch (error) {
+  console.error('❌ Erro ao registrar rotas de Escalações:', error.message);
+  console.error('Stack:', error.stack);
+  console.error('Detalhes do erro:', error);
+}
 
 // Servir arquivos estáticos do frontend (DEPOIS das rotas da API)
 app.use(express.static(path.join(__dirname, 'public')));

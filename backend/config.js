@@ -1,5 +1,5 @@
 // Configuração do VeloHub V3 - Baseada em Variáveis de Ambiente
-// VERSION: v1.2.0 | DATE: 2025-01-10 | AUTHOR: Lucas Gravina - VeloHub Development Team
+// VERSION: v1.3.0 | DATE: 2025-01-30 | AUTHOR: Lucas Gravina - VeloHub Development Team
 
 module.exports = {
   // ===========================================
@@ -47,6 +47,14 @@ module.exports = {
   PONTO_MAIS_API_KEY: process.env.PONTO_MAIS_API_KEY,
   PONTO_MAIS_COMPANY_ID: process.env.PONTO_MAIS_COMPANY_ID,
   
+  // WhatsApp API URL (para módulo Escalações)
+  // Em produção: vem do secret 'whatsapp-api-url'
+  WHATSAPP_API_URL: process.env.WHATSAPP_API_URL,
+  
+  // WhatsApp Default JID (destinatário padrão para envio de mensagens)
+  // Em produção: vem do secret 'whatsapp-default-jid'
+  // Formato: número individual (5511999999999@s.whatsapp.net) ou grupo (120363400851545835@g.us)
+  WHATSAPP_DEFAULT_JID: process.env.WHATSAPP_JID || process.env.WHATSAPP_DEFAULT_JID,
   
   // Cache timeout para dados do chatbot (em ms)
   CHATBOT_CACHE_TIMEOUT: parseInt(process.env.CHATBOT_CACHE_TIMEOUT) || 300000,

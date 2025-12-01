@@ -1,27 +1,41 @@
 /**
  * VeloHub V3 - API Configuration
- * VERSION: v1.0.3 | DATE: 2024-12-19 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.0.5 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
  */
 
 /**
  * Obtém a URL base da API automaticamente baseada no ambiente
- * VERSION: v1.0.3 | DATE: 2024-12-19 | AUTHOR: VeloHub Development Team
- * @returns {string} URL base da API
+ * VERSION: v1.0.5 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
+ * @returns {string} URL base da API (já inclui /api no final)
  */
 export const getApiBaseUrl = () => {
-  // Se há uma variável de ambiente definida, usar ela
+  // Prioridade 1: Se há uma variável de ambiente definida, usar ela
   if (process.env.REACT_APP_API_URL) {
-    return process.env.REACT_APP_API_URL;
+    // Garantir que termina com /api se não terminar
+    const url = process.env.REACT_APP_API_URL.trim();
+    return url.endsWith('/api') ? url : `${url}/api`;
   }
   
-  // SEMPRE usar a URL online, mesmo em desenvolvimento
-  // Detecta automaticamente a URL baseada no domínio atual
+  // Prioridade 2: Detecta automaticamente a URL baseada no domínio atual
   if (typeof window !== 'undefined') {
     const currentHost = window.location.hostname;
+    const currentProtocol = window.location.protocol;
+    const currentPort = window.location.port;
+    
+    // Se estamos em localhost, usar o backend local na porta 8090
+    if (currentHost === 'localhost' || currentHost === '127.0.0.1') {
+      return 'http://localhost:8090/api';
+    }
     
     // Se estamos no Cloud Run, usar o mesmo domínio
     if (currentHost.includes('run.app')) {
       return `https://${currentHost}/api`;
+    }
+    
+    // Se estamos em produção (qualquer outro domínio), usar o backend de produção
+    // Usar o mesmo protocolo do frontend para evitar problemas de CORS
+    if (currentProtocol === 'https:') {
+      return `${currentProtocol}//${currentHost}${currentPort ? `:${currentPort}` : ''}/api`;
     }
     
     // Fallback para URL padrão online

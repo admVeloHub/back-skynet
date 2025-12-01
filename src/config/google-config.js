@@ -1,5 +1,5 @@
 // Configurações do Google OAuth 2.0 para VeloHub
-// VERSION: v1.2.0 | DATE: 2025-01-30 | AUTHOR: Lucas Gravina - VeloHub Development Team
+// VERSION: v1.3.0 | DATE: 2025-01-30 | AUTHOR: Lucas Gravina - VeloHub Development Team
 // 
 // INSTRUÇÕES:
 // 1. Acesse https://console.cloud.google.com/
@@ -25,8 +25,8 @@ export const GOOGLE_CONFIG = {
   // Domínio de email autorizado
   AUTHORIZED_DOMAIN: process.env.REACT_APP_AUTHORIZED_DOMAIN || "velotax.com.br",
   
-  // Duração da sessão em milissegundos (6 horas)
-  SESSION_DURATION: 6 * 60 * 60 * 1000,
+  // Duração da sessão em milissegundos (4 horas)
+  SESSION_DURATION: 4 * 60 * 60 * 1000,
   
   // Chave para localStorage
   SESSION_KEY: 'velohub_user_session'

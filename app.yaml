@@ -1,5 +1,5 @@
 # app.yaml para Google App Engine - VeloHub V3
-# VERSION: v1.2.1 | DATE: 2025-01-30 | AUTHOR: Lucas Gravina - VeloHub Development Team
+# VERSION: v1.2.2 | DATE: 2025-01-30 | AUTHOR: Lucas Gravina - VeloHub Development Team
 # Configuração para desenvolvimento com variáveis diretas
 
 runtime: nodejs18
@@ -23,6 +23,10 @@ env_variables:
   
   # Google Sheets Credentials (via Secret Manager)
   GOOGLE_CREDENTIALS: ${GOOGLE_CREDENTIALS}
+  
+  # WhatsApp API (via Secret Manager)
+  WHATSAPP_API_URL: ${whatsapp-api-url}
+  WHATSAPP_JID: ${whatsapp-default-jid}
   
   # Configurações adicionais
   CORS_ORIGIN: "https://velohub-278491073220.us-east1.run.app"

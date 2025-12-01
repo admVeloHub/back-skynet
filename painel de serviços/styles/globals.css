@@ -1,0 +1,182 @@
+@import "tailwindcss";
+
+:root {
+  --background: #F5F7FB; /* claro */
+  --foreground: #272A30; /* grafite */
+  --accent: #1634FF; /* azul escuro */
+  --surface: #FFFFFF; /* cards */
+  --surface-strong: #FFFFFF;
+}
+
+/* Motion-safe: respeitar usuários que preferem menos animação */
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}
+
+/* Dark theme tokens */
+.dark {
+  --background: #0B0F16;
+  --foreground: #E8ECF3;
+  --accent: #3b5cff; /* azul vibrante no escuro */
+  --surface: #151A23;        /* mais claro para contraste */
+  --surface-strong: #1B212C; /* cards destacados */
+}
+
+body {
+  background: radial-gradient(1200px 600px at 80% -10%, rgba(22,52,255,.08), transparent),
+              radial-gradient(900px 420px at -10% 10%, rgba(121,29,208,.06), transparent),
+              var(--background);
+  color: var(--foreground);
+  font-family: 'Poppins', Arial, Helvetica, sans-serif;
+}
+
+.bg-grid {
+  background-image: radial-gradient(rgba(255,255,255,0.06) 1px, transparent 1px);
+  background-size: 18px 18px;
+}
+
+.titulo-principal {
+  @apply text-2xl md:text-3xl font-bold mb-2;
+}
+
+.subtitulo {
+  @apply text-lg font-semibold text-white mb-2;
+}
+
+.input {
+  @apply w-full border rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-2 shadow-sm;
+  background: var(--surface-strong);
+  border-color: color-mix(in oklab, var(--accent) 30%, transparent);
+  color: var(--foreground);
+}
+.input::placeholder { color: color-mix(in oklab, var(--foreground) 55%, transparent); }
+.dark .input { border-color: color-mix(in oklab, var(--accent) 35%, black); }
+.input:hover { border-color: var(--accent); }
+.input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in oklab, var(--accent) 35%, transparent); }
+.dark .input:focus { box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 45%, transparent); }
+
+.btn-primary {
+  @apply bg-gradient-to-r text-white font-medium px-5 py-2 rounded-lg hover:brightness-110 active:brightness-95 transition-all duration-200 shadow-lg;
+  --from: var(--accent);
+  --to: #6a35ff;
+  background-image: linear-gradient(90deg, var(--from), var(--to));
+}
+
+/* Focus rings consistentes e acessíveis */
+.btn-primary:focus-visible,
+button:focus-visible,
+a:focus-visible,
+.input:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--accent) 65%, transparent);
+  outline-offset: 2px;
+}
+
+.card {
+  @apply border rounded-3xl shadow-lg backdrop-blur-xl transition-transform duration-300;
+  background: var(--surface);
+  border-color: rgba(255,255,255,.12);
+}
+
+.surface {
+  @apply border rounded-3xl backdrop-blur-xl shadow-lg;
+  background: var(--surface-strong);
+  border-color: rgba(255,255,255,.12);
+}
+
+.section-title {
+  @apply flex items-center gap-3 text-xl font-semibold mb-4;
+  color: var(--foreground);
+}
+.section-title::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 22px;
+  border-radius: 9999px;
+  background: linear-gradient(180deg, var(--accent), #1DFDB9);
+}
+
+.badge {
+  @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold;
+  color: var(--accent);
+  border-color: color-mix(in oklab, var(--accent) 30%, transparent);
+  background: color-mix(in oklab, var(--accent) 18%, transparent);
+}
+
+/* Input wrappers with icons */
+.input-wrap { @apply relative; }
+.input-icon { @apply absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none; color: color-mix(in oklab, var(--foreground) 70%, transparent); }
+.input.input-with-icon { @apply pl-10; }
+
+/* Checkbox microinteractions */
+.check-anim { @apply transition-transform duration-150 ease-out; }
+.check-anim:active { transform: scale(0.94); }
+.check-anim:checked { animation: pulse .25s ease-out; }
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 rgba(29,253,185,0.6); }
+  100% { box-shadow: 0 0 0 10px rgba(29,253,185,0); }
+}
+
+/* Toast theme overrides (react-hot-toast) */
+.hot-toast { @apply border rounded-xl; background: var(--surface); color: var(--foreground); border-color: color-mix(in oklab, var(--foreground) 12%, transparent); }
+.hot-toast-success { @apply border-[#1DFDB9]/40; }
+.hot-toast-error { @apply border-[#FF8400]/40; }
+
+/* Responsive spacing */
+.container-pad { @apply px-4 md:px-6 lg:px-8; }
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fadeUp { animation: fadeUp .5s ease-out both; }
+@keyframes fadeScale { from { opacity: 0; transform: translateY(8px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+.animate-fadeScale { animation: fadeScale .38s ease-out both; }
+
+@keyframes spin { to { transform: rotate(360deg) } }
+.spinner { border: 3px solid rgba(255,255,255,.15); border-top-color: #1DFDB9; border-radius: 50%; width: 22px; height: 22px; animation: spin .8s linear infinite; }
+
+/* Overlay de loading global */
+.loading-overlay { position: fixed; inset: 0; background: color-mix(in oklab, var(--background) 60%, black); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 50; }
+.loading-card { background: var(--surface-strong); color: var(--foreground); border: 1px solid rgba(255,255,255,.12); padding: 16px 18px; border-radius: 14px; display: flex; align-items: center; gap: 10px; box-shadow: 0 10px 30px rgba(0,0,0,.25); }
+.loading-card .spinner { width: 20px; height: 20px; border-width: 3px; }
+
+/* Dark-mode overrides for Tailwind utility colors commonly usados no app */
+.dark .text-black\/60 { color: rgba(232,236,243,.65) !important; }
+.dark .text-black\/70 { color: rgba(232,236,243,.75) !important; }
+.dark .text-black\/80 { color: rgba(232,236,243,.85) !important; }
+.dark .border-black\/10 { border-color: rgba(255,255,255,.12) !important; }
+
+/* Dark mode: forçar todos os cards claros para fundo escuro e texto branco */
+.dark .bg-white,
+.dark .bg-white\/90,
+.dark .bg-white\/80,
+.dark .bg-white\/70,
+.dark .bg-white\/60 {
+  background: var(--surface-strong) !important;
+  color: var(--foreground) !important;
+  border-color: rgba(255,255,255,.12) !important;
+}
+.dark .bg-white *,
+.dark .bg-white\/90 *,
+.dark .bg-white\/80 *,
+.dark .bg-white\/70 *,
+.dark .bg-white\/60 * {
+  color: var(--foreground) !important;
+}
+/* Inputs dentro desses cards seguem o tema escuro */
+.dark .bg-white .input,
+.dark .bg-white\/90 .input,
+.dark .bg-white\/80 .input,
+.dark .bg-white\/70 .input,
+.dark .bg-white\/60 .input {
+  background: var(--surface-strong) !important;
+  color: var(--foreground) !important;
+  border-color: color-mix(in oklab, var(--accent) 35%, black) !important;
+}
+.dark .bg-white .input::placeholder,
+.dark .bg-white\/90 .input::placeholder,
+.dark .bg-white\/80 .input::placeholder,
+.dark .bg-white\/70 .input::placeholder,
+.dark .bg-white\/60 .input::placeholder { color: color-mix(in oklab, var(--foreground) 55%, transparent) !important; }

@@ -1,0 +1,52 @@
+[33mcommit 737a6bc6231ffd4deb8a2ff8efedcad3e0d6cf16[m[33m ([m[1;31morigin/escalacoes[m[33m, [m[1;32mescalacoes[m[33m)[m
+Author: admVeloHub <lucas.gravina@velotax.com.br>
+Date:   Mon Dec 1 08:32:37 2025 -0300
+
+    feat(escalacoes): implementação completa do módulo Escalações
+    
+    - Adicionado EscalacoesPage com sistema de abas (Solicitações e Erros/Bugs)
+    - Implementado FormSolicitacao com suporte a múltiplos tipos de solicitação
+    - Implementado ErrosBugsTab para registro de erros e bugs
+    - Criados endpoints backend para escalações (solicitacoes, erros-bugs, logs)
+    - Integrado serviço WhatsApp para notificações
+    - Adicionado sistema de ping de sessão para evitar sessões órfãs
+    - Melhorias no sistema de logging de sessões de usuário
+    - Atualizado Header com menu Escalações
+    - Integrado módulo Escalações no App_v2-1.js principal
+    - Adicionada documentação de schemas MongoDB
+    - Configurações WhatsApp adicionadas ao app.yaml e cloudbuild.yaml
+    - Versão: EscalacoesPage v1.3.1
+
+A	VERIFICACAO_FLUXOS_HUB_SESSIONS_ACKNOWLEDGED.md
+M	app.yaml
+A	backend/ENV_VARIABLES.md
+M	backend/config.js
+A	backend/routes/api/escalacoes/erros-bugs.js
+A	backend/routes/api/escalacoes/indexes.js
+A	backend/routes/api/escalacoes/logs.js
+A	backend/routes/api/escalacoes/solicitacoes.js
+A	backend/scripts/migrate-escalacoes-postgres-to-mongo.js
+M	backend/server.js
+M	backend/services/chatbot/botFeedbackService.js
+A	backend/services/escalacoes/whatsappService.js
+M	backend/services/logging/userSessionLogger.js
+M	cloudbuild.yaml
+M	"listagem de schema de cole\303\247\303\265es do mongoD.rb"
+M	src/App_v2-1-apoio.js
+M	src/App_v2-1-artigos.js
+M	src/App_v2-1-painel.js
+M	src/App_v2-1-velobot.js
+M	src/App_v2-1.js
+M	src/components/Chatbot.js
+A	src/components/Escalacoes/ErrosBugsTab.js
+A	src/components/Escalacoes/FormSolicitacao.js
+M	src/components/Header.js
+M	src/components/SupportModal.js
+M	src/config/api-config.js
+M	src/config/google-config.js
+M	src/pages/ApoioPage.js
+A	src/pages/EscalacoesPage.js
+M	src/services/api.js
+M	src/services/auth.js
+A	src/services/escalacoesApi.js
+A	src/utils/sessionPing.js

@@ -55,3 +55,15 @@ CHATBOT_CACHE_TIMEOUT=300000
 # Ponto Mais API (se necessário)
 PONTO_MAIS_API_KEY=your-ponto-mais-key-here
 PONTO_MAIS_COMPANY_ID=your-company-id-here
+
+# ===========================================
+# WHATSAPP API (para módulo Escalações)
+# ===========================================
+# WhatsApp API URL (URL da API WhatsApp externa)
+# Em produção: vem do secret 'whatsapp-api-url' do GCP
+WHATSAPP_API_URL=http://localhost:3000
+
+# WhatsApp Default JID (destinatário padrão para envio de mensagens)
+# Em produção: vem do secret 'whatsapp-default-jid' do GCP
+# Formato: número individual (5511999999999@s.whatsapp.net) ou grupo (120363400851545835@g.us)
+WHATSAPP_JID=120363400851545835@g.us

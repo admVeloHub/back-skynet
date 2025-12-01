@@ -1,5 +1,5 @@
 // Sistema de Autenticação Centralizado para VeloHub
-// VERSION: v1.1.0 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
+// VERSION: v1.2.0 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
 import { GOOGLE_CONFIG } from '../config/google-config';
 import { API_BASE_URL } from '../config/api-config';
 
@@ -46,6 +46,9 @@ async function registerLoginSession(userData) {
             // Salvar sessionId no localStorage
             localStorage.setItem('velohub_session_id', result.sessionId);
             console.log('✅ Login registrado no backend:', result.sessionId);
+            
+            // Iniciar heartbeat após login bem-sucedido
+            startHeartbeat();
         } else {
             console.error('❌ Erro ao registrar login:', result.error);
         }
@@ -83,6 +86,144 @@ function isSessionValid() {
  * Realiza o logout do usuário.
  */
 /**
+ * Envia heartbeat para manter sessão ativa
+ */
+let heartbeatInterval = null;
+let isHeartbeatActive = false;
+
+async function sendHeartbeat() {
+    try {
+        const sessionId = localStorage.getItem('velohub_session_id');
+        
+        if (!sessionId) {
+            return;
+        }
+
+        // Não enviar heartbeat se aba está oculta
+        if (document.hidden) {
+            return;
+        }
+
+        const url = `${API_BASE_URL}/auth/session/heartbeat`;
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ sessionId })
+        });
+
+        // Verificar se a resposta é JSON antes de parsear
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            const text = await response.text();
+            console.error(`❌ [Heartbeat] Resposta não é JSON. Status: ${response.status}, URL: ${url}`);
+            console.error(`❌ [Heartbeat] Conteúdo recebido:`, text.substring(0, 200));
+            return;
+        }
+
+        const result = await response.json();
+        
+        if (result.expired) {
+            console.warn('⚠️ Sessão expirada - fazendo logout');
+            stopHeartbeat();
+            logout();
+            return;
+        }
+        
+        if (result.success) {
+            // Heartbeat enviado com sucesso (log silencioso)
+        } else {
+            console.warn('⚠️ Erro ao enviar heartbeat:', result.error);
+        }
+    } catch (error) {
+        // Log apenas se não for erro de rede comum (servidor não iniciado)
+        if (error.message && !error.message.includes('Failed to fetch')) {
+            console.error('❌ Erro ao enviar heartbeat:', error);
+        }
+    }
+}
+
+/**
+ * Inicia sistema de heartbeat
+ */
+function startHeartbeat() {
+    if (heartbeatInterval) {
+        return; // Já está rodando
+    }
+
+    isHeartbeatActive = true;
+    
+    // Enviar heartbeat imediatamente
+    sendHeartbeat();
+    
+    // Enviar heartbeat a cada 30 segundos
+    heartbeatInterval = setInterval(() => {
+        if (isHeartbeatActive && !document.hidden) {
+            sendHeartbeat();
+        }
+    }, 30000); // 30 segundos
+
+    console.log('💓 Heartbeat iniciado');
+}
+
+/**
+ * Para sistema de heartbeat
+ */
+function stopHeartbeat() {
+    if (heartbeatInterval) {
+        clearInterval(heartbeatInterval);
+        heartbeatInterval = null;
+    }
+    isHeartbeatActive = false;
+    console.log('💓 Heartbeat parado');
+}
+
+/**
+ * Reativa sessão existente quando usuário retorna
+ */
+async function reactivateSession() {
+    try {
+        const session = getUserSession();
+        
+        if (!session || !session.user || !session.user.email) {
+            return false;
+        }
+
+        const response = await fetch(`${API_BASE_URL}/auth/session/reactivate`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ userEmail: session.user.email })
+        });
+
+        const result = await response.json();
+        
+        if (result.expired) {
+            console.warn('⚠️ Sessão expirada - novo login necessário');
+            logout();
+            return false;
+        }
+        
+        if (result.success) {
+            // Atualizar sessionId se necessário
+            if (result.sessionId) {
+                localStorage.setItem('velohub_session_id', result.sessionId);
+            }
+            console.log('✅ Sessão reativada:', result.sessionId);
+            return true;
+        } else {
+            console.warn('⚠️ Erro ao reativar sessão:', result.error);
+            return false;
+        }
+    } catch (error) {
+        console.error('❌ Erro ao reativar sessão:', error);
+        return false;
+    }
+}
+
+/**
  * Registra logout no backend para controle de sessões
  */
 async function registerLogoutSession() {
@@ -90,18 +231,30 @@ async function registerLogoutSession() {
         const sessionId = localStorage.getItem('velohub_session_id');
         
         if (sessionId) {
-            const response = await fetch(`${API_BASE_URL}/auth/session/logout`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ sessionId })
-            });
-
-            const result = await response.json();
+            // Usar sendBeacon para garantir envio mesmo ao fechar janela
+            const data = JSON.stringify({ sessionId });
             
-            if (result.success) {
-                console.log('✅ Logout registrado:', result.duration + ' min');
+            if (navigator.sendBeacon) {
+                navigator.sendBeacon(
+                    `${API_BASE_URL}/auth/session/logout`,
+                    new Blob([data], { type: 'application/json' })
+                );
+            } else {
+                // Fallback para fetch síncrono
+                const response = await fetch(`${API_BASE_URL}/auth/session/logout`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: data,
+                    keepalive: true
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    console.log('✅ Logout registrado:', result.duration + ' min');
+                }
             }
             
             // Limpar sessionId
@@ -115,10 +268,14 @@ async function registerLogoutSession() {
 function logout() {
     console.log('Logout realizado');
     
+    // Parar heartbeat
+    stopHeartbeat();
+    
     // Registrar logout no backend antes de limpar localStorage
     registerLogoutSession();
     
     localStorage.removeItem(USER_SESSION_KEY);
+    localStorage.removeItem('velohub_session_id');
     // Limpar também os dados antigos para compatibilidade
     localStorage.removeItem('userEmail');
     localStorage.removeItem('userName');
@@ -183,9 +340,9 @@ function updateUserInfo(userData) {
 
 /**
  * Verifica o estado de autenticação e atualiza a UI.
- * @returns {boolean} - true se usuário está logado, false caso contrário
+ * @returns {Promise<boolean>} - true se usuário está logado, false caso contrário
  */
-function checkAuthenticationState() {
+async function checkAuthenticationState() {
     console.log('=== Verificando estado de autenticação ===');
     
     // Verificar se há dados no localStorage (compatibilidade)
@@ -197,12 +354,28 @@ function checkAuthenticationState() {
     if (isSessionValid()) {
         const session = getUserSession();
         console.log('Sessão válida encontrada:', session);
+        
+        // Tentar reativar sessão se necessário
+        const reactivated = await reactivateSession();
+        
+        if (reactivated) {
+            console.log('✅ Sessão reativada com sucesso');
+        }
+        
+        // Iniciar heartbeat
+        startHeartbeat();
+        
         updateUserInfo(session.user);
         return true;
     } else {
         console.log('Sessão inválida ou expirada - fazendo logout');
+        
+        // Parar heartbeat se estiver rodando
+        stopHeartbeat();
+        
         // Se a sessão for inválida ou não existir, limpa qualquer resquício
         localStorage.removeItem(USER_SESSION_KEY);
+        localStorage.removeItem('velohub_session_id');
         localStorage.removeItem('userEmail');
         localStorage.removeItem('userName');
         localStorage.removeItem('userPicture');
@@ -272,12 +445,40 @@ export {
     decodeJWT,
     initializeGoogleSignIn,
     registerLoginSession,
-    registerLogoutSession
+    registerLogoutSession,
+    startHeartbeat,
+    stopHeartbeat,
+    reactivateSession
 };
 
 // Listener para logout automático ao fechar página/navegador
 window.addEventListener('beforeunload', () => {
+    stopHeartbeat();
     registerLogoutSession();
+});
+
+// Listener para quando página fica oculta (aba muda, minimiza, etc)
+document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+        // Pausar heartbeat quando aba está oculta
+        // Mas não marcar como logout ainda
+        console.log('👁️ Aba oculta - heartbeat pausado');
+    } else {
+        // Retomar heartbeat quando aba fica visível novamente
+        if (isSessionValid() && !heartbeatInterval) {
+            startHeartbeat();
+            console.log('👁️ Aba visível - heartbeat retomado');
+        }
+    }
+});
+
+// Listener adicional para pagehide (mais confiável que beforeunload)
+window.addEventListener('pagehide', (event) => {
+    // Se página está sendo descarregada permanentemente
+    if (event.persisted === false) {
+        stopHeartbeat();
+        registerLogoutSession();
+    }
 });
 
 // Também disponibilizar globalmente para compatibilidade

@@ -1,5 +1,5 @@
 // User Session Logger - Log de sessões de login/logout dos usuários
-// VERSION: v1.0.0 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
+// VERSION: v1.1.0 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
 const { MongoClient } = require('mongodb');
 const { v4: uuidv4 } = require('uuid');
 require('dotenv').config();
@@ -55,7 +55,9 @@ class UserSessionLogger {
         userAgent,
         isActive: true,
         loginTimestamp: now,
-        logoutTimestamp: null
+        logoutTimestamp: null,
+        createdAt: now,
+        updatedAt: now
       };
 
       const result = await this.collection.insertOne(session);
@@ -111,7 +113,8 @@ class UserSessionLogger {
         {
           $set: {
             isActive: false,
-            logoutTimestamp: now
+            logoutTimestamp: now,
+            updatedAt: now
           }
         }
       );
@@ -171,6 +174,206 @@ class UserSessionLogger {
       await this.client.close();
       this.isConnected = false;
       console.log('🔌 SessionLogger: Conexão MongoDB fechada');
+    }
+  }
+
+  /**
+   * Atualiza sessão (heartbeat) - mantém isActive=true
+   * @param {string} sessionId - ID da sessão
+   * @returns {Promise<Object>} { success: boolean, expired: boolean }
+   */
+  async updateSession(sessionId) {
+    try {
+      await this.connect();
+
+      const now = new Date();
+      const SESSION_EXPIRATION_MS = 4 * 60 * 60 * 1000; // 4 horas
+
+      // Buscar sessão
+      const session = await this.collection.findOne({
+        sessionId: sessionId
+      });
+
+      if (!session) {
+        return {
+          success: false,
+          expired: false,
+          error: 'Sessão não encontrada'
+        };
+      }
+
+      // Verificar se sessão expirou (4 horas)
+      const elapsedTime = now - session.loginTimestamp;
+      if (elapsedTime > SESSION_EXPIRATION_MS) {
+        // Marcar como inativa se expirada
+        await this.collection.updateOne(
+          { sessionId: sessionId },
+          {
+            $set: {
+              isActive: false,
+              logoutTimestamp: now,
+              updatedAt: now
+            }
+          }
+        );
+        
+        return {
+          success: false,
+          expired: true,
+          error: 'Sessão expirada (4 horas)'
+        };
+      }
+
+      // Atualizar sessão mantendo isActive=true
+      const result = await this.collection.updateOne(
+        { sessionId: sessionId },
+        {
+          $set: {
+            isActive: true,
+            updatedAt: now
+          }
+        }
+      );
+
+      if (result.modifiedCount > 0) {
+        console.log(`💓 SessionLogger: Heartbeat recebido - ${session.colaboradorNome}`);
+        return {
+          success: true,
+          expired: false
+        };
+      } else {
+        return {
+          success: false,
+          expired: false,
+          error: 'Erro ao atualizar sessão'
+        };
+      }
+
+    } catch (error) {
+      console.error('❌ SessionLogger: Erro ao atualizar sessão:', error.message);
+      return {
+        success: false,
+        expired: false,
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Reativa sessão existente do usuário (quando retorna sem novo login)
+   * @param {string} userEmail - Email do usuário
+   * @returns {Promise<Object>} { success: boolean, sessionId: string, expired: boolean }
+   */
+  async reactivateSession(userEmail) {
+    try {
+      await this.connect();
+
+      const now = new Date();
+      const SESSION_EXPIRATION_MS = 4 * 60 * 60 * 1000; // 4 horas
+
+      // Buscar sessão mais recente do usuário (ativa ou inativa)
+      const session = await this.collection
+        .find({ userEmail: userEmail })
+        .sort({ loginTimestamp: -1 })
+        .limit(1)
+        .toArray();
+
+      if (!session || session.length === 0) {
+        return {
+          success: false,
+          expired: false,
+          error: 'Nenhuma sessão encontrada para este usuário'
+        };
+      }
+
+      const latestSession = session[0];
+
+      // Verificar se sessão expirou (4 horas)
+      const elapsedTime = now - latestSession.loginTimestamp;
+      if (elapsedTime > SESSION_EXPIRATION_MS) {
+        return {
+          success: false,
+          expired: true,
+          error: 'Sessão expirada (4 horas) - novo login necessário'
+        };
+      }
+
+      // Reativar sessão
+      const result = await this.collection.updateOne(
+        { sessionId: latestSession.sessionId },
+        {
+          $set: {
+            isActive: true,
+            updatedAt: now
+          }
+        }
+      );
+
+      if (result.modifiedCount > 0) {
+        console.log(`🔄 SessionLogger: Sessão reativada - ${latestSession.colaboradorNome} (${latestSession.sessionId})`);
+        return {
+          success: true,
+          sessionId: latestSession.sessionId,
+          expired: false
+        };
+      } else {
+        return {
+          success: false,
+          expired: false,
+          error: 'Erro ao reativar sessão'
+        };
+      }
+
+    } catch (error) {
+      console.error('❌ SessionLogger: Erro ao reativar sessão:', error.message);
+      return {
+        success: false,
+        expired: false,
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Verifica se sessão está válida e não expirada
+   * @param {string} sessionId - ID da sessão
+   * @returns {Promise<Object>} { valid: boolean, expired: boolean, session: Object }
+   */
+  async validateSession(sessionId) {
+    try {
+      await this.connect();
+
+      const now = new Date();
+      const SESSION_EXPIRATION_MS = 4 * 60 * 60 * 1000; // 4 horas
+
+      const session = await this.collection.findOne({
+        sessionId: sessionId
+      });
+
+      if (!session) {
+        return {
+          valid: false,
+          expired: false,
+          session: null
+        };
+      }
+
+      const elapsedTime = now - session.loginTimestamp;
+      const expired = elapsedTime > SESSION_EXPIRATION_MS;
+
+      return {
+        valid: !expired && session.isActive,
+        expired: expired,
+        session: session
+      };
+
+    } catch (error) {
+      console.error('❌ SessionLogger: Erro ao validar sessão:', error.message);
+      return {
+        valid: false,
+        expired: false,
+        session: null
+      };
     }
   }
 

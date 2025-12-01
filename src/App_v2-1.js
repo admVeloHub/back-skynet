@@ -1,17 +1,18 @@
 /**
  * VeloHub V3 - Main Application Component
- * VERSION: v2.1.79 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.1.82 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
  */
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Home, FileText, MessageSquare, LifeBuoy, Book, Search, User, Sun, Moon, FilePlus, Bot, GraduationCap, Map, Puzzle, PlusSquare, Send, ThumbsUp, ThumbsDown, BookOpen, X, RefreshCw } from 'lucide-react';
 import { mainAPI, veloNewsAPI, articlesAPI, faqAPI } from './services/api';
-import { checkAuthenticationState, updateUserInfo, getUserSession } from './services/auth';
+import { checkAuthenticationState, updateUserInfo, getUserSession, stopHeartbeat } from './services/auth';
 import { API_BASE_URL } from './config/api-config';
 import NewsHistoryModal from './components/NewsHistoryModal';
 import LoginPage from './components/LoginPage';
 import Chatbot from './components/Chatbot';
 import SupportModal from './components/SupportModal';
+import EscalacoesPage from './pages/EscalacoesPage';
 import { formatArticleContent, formatPreviewText, formatResponseText } from './utils/textFormatter';
 
 // Sistema de gerenciamento de estado para modal crítico
@@ -156,7 +157,7 @@ window.debugCriticalModal = () => {
 
 // Componente do Cabeçalho
 const Header = ({ activePage, setActivePage, isDarkMode, toggleDarkMode }) => {
-  const navItems = ['Home', 'VeloBot', 'Artigos', 'Apoio', 'VeloAcademy'];
+  const navItems = ['Home', 'VeloBot', 'Artigos', 'Apoio', 'Escalações', 'VeloAcademy'];
 
   const handleNavClick = (item) => {
     console.log('Clicou em:', item); // Debug
@@ -293,14 +294,21 @@ export default function App_v2() {
 
   useEffect(() => {
     // Verificar autenticação primeiro
-    const checkAuth = () => {
-      const isAuth = checkAuthenticationState();
+    const checkAuth = async () => {
+      const isAuth = await checkAuthenticationState();
       setIsAuthenticated(isAuth);
       setIsCheckingAuth(false);
     };
 
     // Aguardar um pouco para garantir que o DOM está pronto
     setTimeout(checkAuth, 100);
+    
+    // Cleanup: parar heartbeat quando componente desmonta
+    return () => {
+      if (typeof stopHeartbeat === 'function') {
+        stopHeartbeat();
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -364,6 +372,8 @@ export default function App_v2() {
         return <ArtigosPage />;
       case 'Apoio':
         return <ApoioPage />;
+      case 'Escalações':
+        return <EscalacoesPage />;
       case 'VeloAcademy':
         return <div className="text-center p-10 text-gray-800 dark:text-gray-200"><h1 className="text-3xl">VeloAcademy</h1><p>Clique no botão VeloAcademy no header para acessar a plataforma.</p></div>;
       default:
@@ -405,7 +415,7 @@ export default function App_v2() {
               const userEmail = session?.user?.email || 'unknown';
               const userName = session?.user?.name || 'Usuário';
               
-              const response = await fetch(`${API_BASE_URL}/api/velo-news/${newsId}/acknowledge`, {
+              const response = await fetch(`${API_BASE_URL}/velo-news/${newsId}/acknowledge`, {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
@@ -441,7 +451,7 @@ export default function App_v2() {
             const userEmail = session?.user?.email || 'unknown';
             const finalUserName = userName || session?.user?.name || 'Usuário';
             
-            const response = await fetch(`${API_BASE_URL}/api/velo-news/${newsId}/acknowledge`, {
+            const response = await fetch(`${API_BASE_URL}/velo-news/${newsId}/acknowledge`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
@@ -690,7 +700,7 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews 
     // ===== FUNÇÃO PARA ACKNOWLEDGE DE NOTÍCIAS =====
     const handleAcknowledgeNews = async (newsId, userName) => {
         try {
-            const response = await fetch(`${API_BASE_URL}/api/velo-news/${newsId}/acknowledge`, {
+            const response = await fetch(`${API_BASE_URL}/velo-news/${newsId}/acknowledge`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
