@@ -1,9 +1,16 @@
 /**
  * VeloHub V3 - FormSolicitacao Component (Escalações Module)
- * VERSION: v1.3.1 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.3.2 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
  * Branch: escalacoes
  * 
  * Componente de formulário para criação de solicitações técnicas
+ * 
+ * Mudanças v1.3.2:
+ * - Agente agora vem exclusivamente da sessão logada (getUserSession)
+ * - Adicionada validação de sessão antes de enviar solicitação
+ * - Adicionados logs de debug para diagnóstico de envio WhatsApp
+ * - Adicionada validação de mensagemTexto antes de enviar
+ * - Toast fixo no viewport (canto inferior direito da tela) com z-index alto (9999)
  * 
  * Mudanças v1.3.1:
  * - Corrigido posicionamento dos toasts de top-4 para bottom-4 (canto inferior direito)
@@ -25,6 +32,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { solicitacoesAPI, logsAPI } from '../../services/escalacoesApi';
+import { getUserSession } from '../../services/auth';
 
 /**
  * Componente de formulário para solicitações técnicas
@@ -353,10 +361,16 @@ const FormSolicitacao = ({ registrarLog }) => {
       'Alteração de Dados Cadastrais': 'Alteração de Dados Cadastrais',
       'Reativação de Conta': 'Reativação de Conta',
     };
-    const tipoCanon = typeMap[form.tipo] || toTitleCase(String(form.tipo || ''));
-    const cpfNorm = String(form.cpf || '').replace(/\s+/g, ' ').trim();
+    const tipoCanon = typeMap[form.tipo] || toTitleCase(String(form.tipo || 'Solicitação Técnica'));
+    const cpfNorm = String(form.cpf || '').replace(/\D/g, '').trim();
+    
+    // Obter agente da sessão logada
+    const session = getUserSession();
+    const agenteMsg = session?.user?.name ? toTitleCase(session.user.name) : 'Agente não informado';
+    
     let msg = `*Nova Solicitação Técnica - ${tipoCanon}*\n\n`;
-    msg += `Agente: ${form.agente}\nCPF: ${cpfNorm}\n\n`;
+    msg += `Agente: ${agenteMsg}\n`;
+    msg += `CPF: ${cpfNorm}\n\n`;
 
     if (form.tipo === 'Exclusão de Conta') {
       msg += `Excluir conta Velotax: ${simNao(form.excluirVelotax)}\n`;
@@ -366,14 +380,22 @@ const FormSolicitacao = ({ registrarLog }) => {
       msg += `Dívida IRPF quitada: ${simNao(form.dividaIrpfQuitada)}\n`;
       msg += `Observações: ${form.observacoes || '—'}\n`;
     } else if (form.tipo === 'Alteração de Dados Cadastrais') {
-      msg += `Tipo de informação: ${form.infoTipo}\n`;
-      msg += `Dado antigo: ${form.dadoAntigo}\n`;
-      msg += `Dado novo: ${form.dadoNovo}\n`;
+      msg += `Tipo de informação: ${form.infoTipo || '—'}\n`;
+      msg += `Dado antigo: ${form.dadoAntigo || '—'}\n`;
+      msg += `Dado novo: ${form.dadoNovo || '—'}\n`;
       msg += `Fotos verificadas: ${simNao(form.fotosVerificadas)}\n`;
       msg += `Observações: ${form.observacoes || '—'}\n`;
     } else {
+      // Para outros tipos (Exclusão de Chave PIX, Reativação, etc.)
       msg += `Observações: ${form.observacoes || '—'}\n`;
     }
+    
+    // Garantir que a mensagem não está vazia
+    if (!msg || !msg.trim()) {
+      console.error('[FRONTEND] ❌ Mensagem gerada está vazia!');
+      return '*Nova Solicitação Técnica*\n\nAgente: Não informado\nCPF: Não informado\n\nObservações: —\n';
+    }
+    
     return msg;
   };
 
@@ -413,25 +435,35 @@ const FormSolicitacao = ({ registrarLog }) => {
       }
     };
 
-    // Garantir nome do agente normalizado
-    let agenteNorm = form.agente && form.agente.trim() ? toTitleCase(form.agente) : '';
-    if (!agenteNorm) {
-      try {
-        agenteNorm = toTitleCase(localStorage.getItem('velotax_agent') || '');
-      } catch (err) {
-        console.error('Erro ao obter agente:', err);
-      }
-      if (agenteNorm) setForm((prev) => ({ ...prev, agente: agenteNorm }));
+    // Obter agente da sessão logada
+    const session = getUserSession();
+    if (!session || !session.user || !session.user.name) {
+      console.error('[FRONTEND] ❌ Sessão não encontrada ou usuário não logado!');
+      showNotification('Erro: Sessão não encontrada. Por favor, faça login novamente.', 'error');
+      setLoading(false);
+      return;
     }
-    if (agenteNorm) {
-      try {
-        localStorage.setItem('velotax_agent', agenteNorm);
-      } catch (err) {
-        console.error('Erro ao salvar agente:', err);
-      }
-    }
+    
+    const agenteNorm = toTitleCase(session.user.name);
+    setForm((prev) => ({ ...prev, agente: agenteNorm }));
 
+    // Montar mensagem garantindo que agente está preenchido
     const mensagemTexto = montarMensagem();
+    
+    // Validar que mensagemTexto foi gerada corretamente
+    if (!mensagemTexto || !mensagemTexto.trim()) {
+      console.error('[FRONTEND] ❌ mensagemTexto vazia ou inválida!');
+      console.error('[FRONTEND] Form data:', form);
+      showNotification('Erro: Não foi possível gerar a mensagem. Verifique os dados preenchidos.', 'error');
+      setLoading(false);
+      return;
+    }
+    
+    console.log('[FRONTEND DEBUG] ✅ mensagemTexto gerada:', {
+      length: mensagemTexto.length,
+      preview: mensagemTexto.substring(0, 100) + '...',
+      agente: agenteNorm
+    });
 
     try {
       // Criar solicitação via API
@@ -522,13 +554,16 @@ const FormSolicitacao = ({ registrarLog }) => {
 
   return (
     <>
-      {/* Notificação simples */}
+      {/* Notificação simples - Fixa no viewport */}
       {notification.show && (
-        <div className={`fixed bottom-4 right-4 z-50 px-4 py-3 rounded-lg shadow-lg ${
-          notification.type === 'success' ? 'bg-green-500 text-white' :
-          notification.type === 'error' ? 'bg-red-500 text-white' :
-          'bg-blue-500 text-white'
-        }`}>
+        <div 
+          className={`fixed bottom-4 right-4 z-[9999] px-4 py-3 rounded-lg shadow-lg ${
+            notification.type === 'success' ? 'bg-green-500 text-white' :
+            notification.type === 'error' ? 'bg-red-500 text-white' :
+            'bg-blue-500 text-white'
+          }`}
+          style={{ position: 'fixed', bottom: '16px', right: '16px' }}
+        >
           {notification.message}
         </div>
       )}

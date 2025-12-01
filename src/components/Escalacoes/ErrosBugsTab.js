@@ -1,9 +1,14 @@
 /**
  * VeloHub V3 - ErrosBugsTab Component
- * VERSION: v1.6.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.6.1 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
  * Branch: escalacoes
  * 
  * Componente para reportar erros e bugs com anexos de imagem/vídeo
+ * 
+ * Mudanças v1.6.1:
+ * - Toast fixo no viewport (canto inferior direito da tela) com z-index alto (9999)
+ * - Histórico do agente com altura fixa (500px) e scrollável
+ * - Substituído sistema de mensagens inline por toast notifications
  * 
  * Mudanças v1.6.0:
  * - Implementada visualização e reprodução de vídeos no modal de anexos
@@ -62,6 +67,7 @@ const ErrosBugsTab = () => {
   const [videos, setVideos] = useState([]); // [{ name, type, data, thumbnail }]
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState('');
+  const [notification, setNotification] = useState({ show: false, message: '', type: 'success' });
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [showAttachmentsModal, setShowAttachmentsModal] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null); // URL da imagem selecionada para visualização
@@ -89,6 +95,16 @@ const ErrosBugsTab = () => {
       if (i > 0 && keepLower.has(p)) return p;
       return p.charAt(0).toUpperCase() + p.slice(1);
     }).join(' ');
+  };
+
+  /**
+   * Exibir notificação simples (toast)
+   * @param {string} message - Mensagem a exibir
+   * @param {string} type - Tipo da notificação (success, error, info)
+   */
+  const showNotification = (message, type = 'success') => {
+    setNotification({ show: true, message, type });
+    setTimeout(() => setNotification({ show: false, message: '', type: 'success' }), 3000);
   };
 
   /**
@@ -490,6 +506,7 @@ const ErrosBugsTab = () => {
     e.preventDefault();
     setLoading(true);
     setMsg('');
+    setNotification({ show: false, message: '', type: 'success' });
 
     // TODO: Configurar via variáveis de ambiente
     const apiUrl = process.env.REACT_APP_WHATSAPP_API_URL || '';
@@ -583,7 +600,7 @@ const ErrosBugsTab = () => {
       };
       saveCache([newItem, ...localLogs].slice(0, 50));
 
-      setMsg(apiUrl && defaultJid ? 'Enviado e registrado com sucesso.' : 'Registrado no painel. WhatsApp não configurado.');
+      showNotification(apiUrl && defaultJid ? 'Enviado e registrado com sucesso.' : 'Registrado no painel. WhatsApp não configurado.', 'success');
       // Não limpar agente, pois é automático
       setCpf('');
       setDescricao('');
@@ -593,7 +610,7 @@ const ErrosBugsTab = () => {
       await loadStats();
     } catch (err) {
       console.error('Erro ao enviar erro/bug:', err);
-      setMsg('Falha ao enviar/registrar. Tente novamente.');
+      showNotification('Falha ao enviar/registrar. Tente novamente.', 'error');
     } finally {
       setLoading(false);
     }
@@ -601,6 +618,19 @@ const ErrosBugsTab = () => {
 
   return (
     <div className="flex gap-8">
+      {/* Notificação simples - Fixa no viewport */}
+      {notification.show && (
+        <div 
+          className={`fixed bottom-4 right-4 z-[9999] px-4 py-3 rounded-lg shadow-lg ${
+            notification.type === 'success' ? 'bg-green-500 text-white' :
+            notification.type === 'error' ? 'bg-red-500 text-white' :
+            'bg-blue-500 text-white'
+          }`}
+          style={{ position: 'fixed', bottom: '16px', right: '16px' }}
+        >
+          {notification.message}
+        </div>
+      )}
       {loading && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white dark:bg-gray-800 p-8 rounded-xl">
@@ -921,7 +951,6 @@ const ErrosBugsTab = () => {
         </div>
 
         <div className="flex items-center justify-end gap-4">
-          {msg && <span className="text-sm text-gray-700 dark:text-gray-300">{msg}</span>}
           <button
             type="submit"
             disabled={loading}
@@ -1107,8 +1136,8 @@ const ErrosBugsTab = () => {
         </div>
 
         {/* Sidebar Inferior - Histórico do Agente */}
-        <div className="w-[400px] flex-1 bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-4 hover:-translate-y-0.5 transition-transform flex flex-col">
-          <div className="mb-4">
+        <div className="w-[400px] h-[500px] bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-4 hover:-translate-y-0.5 transition-transform flex flex-col">
+          <div className="mb-4 flex-shrink-0">
             <div className="flex items-center gap-2 mb-2">
               <div className="w-1.5 h-5 rounded-full bg-gradient-to-b from-sky-500 to-emerald-500" />
               <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
@@ -1119,14 +1148,14 @@ const ErrosBugsTab = () => {
               {selectedAgent || 'Selecione um agente'}
             </div>
           </div>
-          <div className="flex-1 overflow-auto pr-1">
+          <div className="flex-1 overflow-hidden flex flex-col min-h-0">
             {(!localLogs || localLogs.length === 0) && (
               <div className="text-sm opacity-70 text-gray-600 dark:text-gray-400 text-center py-8">
                 Nenhum registro.
               </div>
             )}
             {localLogs && localLogs.length > 0 && (
-              <div className="space-y-2">
+              <div className="space-y-2 overflow-y-auto pr-1 flex-1">
                 {localLogs.map((l, idx) => {
                   const s = String(l.status || '').toLowerCase();
                   const badge =

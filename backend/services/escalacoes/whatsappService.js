@@ -1,7 +1,10 @@
 /**
  * VeloHub V3 - WhatsApp Service para Módulo Escalações
- * VERSION: v1.1.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.1.1 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
  * Branch: escalacoes
+ * 
+ * Mudanças v1.1.1:
+ * - Adicionados logs detalhados para diagnóstico de envio de mensagens
  * 
  * Serviço para integração com API WhatsApp externa (Baileys)
  * Referência: painel de serviços/api wpp/index.js
@@ -88,15 +91,25 @@ function parseMetaFromText(texto) {
 async function sendMessage(jid, mensagem, imagens = [], videos = [], options = {}) {
   const apiUrl = config.WHATSAPP_API_URL;
   
+  console.log(`[WHATSAPP SERVICE] Iniciando envio de mensagem...`);
+  console.log(`[WHATSAPP SERVICE] JID recebido: ${jid}`);
+  console.log(`[WHATSAPP SERVICE] Mensagem length: ${mensagem ? mensagem.length : 0}`);
+  console.log(`[WHATSAPP SERVICE] Imagens: ${Array.isArray(imagens) ? imagens.length : 0}`);
+  console.log(`[WHATSAPP SERVICE] Vídeos: ${Array.isArray(videos) ? videos.length : 0}`);
+  
   if (!apiUrl) {
-    console.log('[WHATSAPP] API URL não configurada - pulando envio');
+    console.log('[WHATSAPP SERVICE] ❌ API URL não configurada - pulando envio');
     return { ok: false, error: 'WhatsApp API não configurada' };
   }
+  
+  console.log(`[WHATSAPP SERVICE] API URL: ${apiUrl}`);
   
   try {
     // Formatar JID se necessário
     let destinatario = formatJid(jid);
+    console.log(`[WHATSAPP SERVICE] Destinatário formatado: ${destinatario}`);
     if (!destinatario) {
+      console.log('[WHATSAPP SERVICE] ❌ Destino inválido após formatação');
       return { ok: false, error: 'Destino inválido' };
     }
     
@@ -117,14 +130,22 @@ async function sendMessage(jid, mensagem, imagens = [], videos = [], options = {
       agente: agente || null
     };
     
-    console.log(`[WHATSAPP] Enviando mensagem para ${destinatario}...`);
+    console.log(`[WHATSAPP SERVICE] Enviando mensagem para ${destinatario}...`);
+    console.log(`[WHATSAPP SERVICE] Payload:`, JSON.stringify({
+      ...payload,
+      mensagem: payload.mensagem ? `${payload.mensagem.substring(0, 100)}...` : '',
+      imagens: payload.imagens ? `${payload.imagens.length} imagens` : [],
+      videos: payload.videos ? `${payload.videos.length} vídeos` : []
+    }));
     
     // Fazer requisição com timeout de 30 segundos
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 30000);
     
     try {
-      const response = await fetch(`${apiUrl}/send`, {
+      const url = `${apiUrl}/send`;
+      console.log(`[WHATSAPP SERVICE] Fazendo requisição POST para: ${url}`);
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -132,6 +153,8 @@ async function sendMessage(jid, mensagem, imagens = [], videos = [], options = {
         body: JSON.stringify(payload),
         signal: controller.signal
       });
+      
+      console.log(`[WHATSAPP SERVICE] Resposta recebida: Status ${response.status} ${response.statusText}`);
       
       clearTimeout(timeoutId);
       
