@@ -3,6 +3,10 @@
  * VERSION: v1.1.1 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
  * Branch: escalacoes
  * 
+ * Mudanças v1.1.2:
+ * - Normalização da URL da API WhatsApp (remove barra final)
+ * - Logs melhorados para diagnóstico
+ * 
  * Mudanças v1.1.1:
  * - Adicionados logs detalhados para diagnóstico de envio de mensagens
  * 
@@ -89,7 +93,9 @@ function parseMetaFromText(texto) {
  * @returns {Promise<Object>} { ok: boolean, messageId?: string, messageIds?: Array, error?: string }
  */
 async function sendMessage(jid, mensagem, imagens = [], videos = [], options = {}) {
-  const apiUrl = config.WHATSAPP_API_URL;
+  // Normalizar URL removendo barra final se existir
+  const apiUrlRaw = config.WHATSAPP_API_URL;
+  const apiUrl = apiUrlRaw ? String(apiUrlRaw).replace(/\/+$/, '') : null;
   
   console.log(`[WHATSAPP SERVICE] Iniciando envio de mensagem...`);
   console.log(`[WHATSAPP SERVICE] JID recebido: ${jid}`);
@@ -99,10 +105,11 @@ async function sendMessage(jid, mensagem, imagens = [], videos = [], options = {
   
   if (!apiUrl) {
     console.log('[WHATSAPP SERVICE] ❌ API URL não configurada - pulando envio');
+    console.log(`[WHATSAPP SERVICE] Valor bruto: ${apiUrlRaw}`);
     return { ok: false, error: 'WhatsApp API não configurada' };
   }
   
-  console.log(`[WHATSAPP SERVICE] API URL: ${apiUrl}`);
+  console.log(`[WHATSAPP SERVICE] API URL (normalizada): ${apiUrl}`);
   
   try {
     // Formatar JID se necessário
