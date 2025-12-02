@@ -1,6 +1,6 @@
 /**
  * VeloHub V3 - Backend Server
- * VERSION: v2.31.3 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.31.4 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
  */
 
 // ===== FALLBACK PARA TESTES LOCAIS =====
@@ -1293,6 +1293,7 @@ app.post('/api/chatbot/clarification', async (req, res) => {
         sourceRow: directMatch.pergunta,
         timestamp: new Date().toISOString(),
         sessionId: cleanSessionId,
+        tabulacao: directMatch.tabulacao || null,
         articles: relatedArticles
       };
       
@@ -1330,6 +1331,7 @@ app.post('/api/chatbot/clarification', async (req, res) => {
         sourceRow: searchResults.botPergunta.pergunta,
         timestamp: new Date().toISOString(),
         sessionId: cleanSessionId,
+        tabulacao: searchResults.botPergunta.tabulacao || null,
         articles: relatedArticles
       };
       

@@ -1,6 +1,6 @@
 /**
  * VeloHub V3 - Chatbot Component
- * VERSION: v1.10.2 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.10.3 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
  */
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -12,7 +12,7 @@ import { API_BASE_URL } from '../config/api-config';
 console.log('🔧 Chatbot - API_BASE_URL:', API_BASE_URL);
 
 // Componente do Chatbot Inteligente - Mantendo Layout Original
-// VERSION: v1.10.0 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
+// VERSION: v1.10.3 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
 const Chatbot = ({ prompt }) => {
     const [messages, setMessages] = useState([]);
     const [inputValue, setInputValue] = useState('');
@@ -459,6 +459,7 @@ const Chatbot = ({ prompt }) => {
                         source: data.source,
                         sourceId: data.sourceId,
                         sourceRow: data.sourceRow,
+                        tabulacao: data.tabulacao || null,
                         // Campos necessários para botões WhatsApp/Email
                         originalQuestion: trimmedInput,
                         botPerguntaResponse: formattedResponse,
