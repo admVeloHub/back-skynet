@@ -1,6 +1,6 @@
 /**
  * VeloHub V3 - Main Application Component
- * VERSION: v2.1.82 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.1.83 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
  */
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -13,6 +13,7 @@ import LoginPage from './components/LoginPage';
 import Chatbot from './components/Chatbot';
 import SupportModal from './components/SupportModal';
 import EscalacoesPage from './pages/EscalacoesPage';
+import VeloNewsAdmin from './components/VeloNewsAdmin';
 import { formatArticleContent, formatPreviewText, formatResponseText } from './utils/textFormatter';
 
 // Sistema de gerenciamento de estado para modal crítico
@@ -605,6 +606,20 @@ const PontoWidget = () => {
 };
 
 // Conteúdo da Página Home - VERSÃO MELHORADA
+// Função auxiliar para extrair ID do YouTube
+const extractYouTubeId = (url) => {
+  if (!url) return null;
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/,
+    /youtube\.com\/watch\?.*v=([^&\n?#]+)/,
+  ];
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match && match[1]) return match[1];
+  }
+  return null;
+};
+
 const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews }) => {
     const [selectedNews, setSelectedNews] = useState(null);
     const [selectedArticle, setSelectedArticle] = useState(null);
@@ -612,6 +627,10 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews 
     const [loading, setLoading] = useState(true);
     const [lastRefresh, setLastRefresh] = useState(Date.now());
     const [lastCriticalNewsId, setLastCriticalNewsId] = useState(null);
+    const [expandedImage, setExpandedImage] = useState(null);
+    const [expandedVideo, setExpandedVideo] = useState(null);
+    const [showNewsAdmin, setShowNewsAdmin] = useState(false);
+    const [newsToEdit, setNewsToEdit] = useState(null);
     
     // Estados dos módulos - controlados pelo Console VeloHub
     const [moduleStatus, setModuleStatus] = useState({
@@ -1202,10 +1221,12 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews 
                 `}</style>
             </aside>
                             <section className="p-4 rounded-lg shadow-sm velohub-container" style={{borderRadius: '9.6px', boxShadow: '0 3.2px 16px rgba(0, 0, 0, 0.1)', padding: '19.2px'}}>
-                <h2 className="text-center font-bold text-3xl mb-6">
-                    <span style={{color: 'var(--blue-medium)'}}>velo</span>
-                    <span style={{color: 'var(--blue-dark)'}}>news</span>
-                </h2>
+                <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-center font-bold text-3xl w-full">
+                        <span style={{color: 'var(--blue-medium)'}}>velo</span>
+                        <span style={{color: 'var(--blue-dark)'}}>news</span>
+                    </h2>
+                </div>
                 <div className="space-y-4">
                     {loading ? (
                         <div className="text-center py-8">
@@ -1240,6 +1261,69 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews 
                                             )}
                                         </div>
                                     </div>
+                                    
+                                    {/* Preview de imagens (thumbnail) - não poluído */}
+                                    {news.images && news.images.length > 0 && (
+                                        <div className="mb-2 grid grid-cols-3 gap-2">
+                                            {news.images.slice(0, 3).map((img, idx) => (
+                                                <img 
+                                                    key={idx}
+                                                    src={img.url || img.data || img} 
+                                                    alt={`Preview ${idx + 1}`}
+                                                    className="w-full h-20 object-cover rounded border border-gray-200 dark:border-gray-700 cursor-pointer hover:opacity-80 transition-opacity"
+                                                    onClick={() => {
+                                                        setSelectedNews(news);
+                                                        setExpandedImage(img.url || img.data || img);
+                                                    }}
+                                                />
+                                            ))}
+                                            {news.images.length > 3 && (
+                                                <div className="w-full h-20 bg-gray-100 dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700 flex items-center justify-center text-xs text-gray-500">
+                                                    +{news.images.length - 3}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                    
+                                    {/* Preview de vídeos (thumbnail) - não poluído */}
+                                    {news.videos && news.videos.length > 0 && (
+                                        <div className="mb-2 flex gap-2">
+                                            {news.videos.slice(0, 2).map((video, idx) => {
+                                                // Se for YouTube, mostrar thumbnail do YouTube
+                                                const videoId = video.youtubeId || (video.url ? extractYouTubeId(video.url) : null);
+                                                if (videoId) {
+                                                    return (
+                                                        <div 
+                                                            key={idx} 
+                                                            className="w-32 h-20 rounded border border-gray-700 overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
+                                                            onClick={() => setSelectedNews(news)}
+                                                        >
+                                                            <img 
+                                                                src={`https://img.youtube.com/vi/${videoId}/mqdefault.jpg`}
+                                                                alt="YouTube thumbnail"
+                                                                className="w-full h-full object-cover"
+                                                            />
+                                                        </div>
+                                                    );
+                                                }
+                                                // Se for vídeo em base64
+                                                return (
+                                                    <div 
+                                                        key={idx} 
+                                                        className="w-32 h-20 bg-gray-900 rounded border border-gray-700 flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity"
+                                                        onClick={() => {
+                                                            setSelectedNews(news);
+                                                            setExpandedVideo(video.url || video.data || video);
+                                                        }}
+                                                    >
+                                                        <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                                            <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
+                                                        </svg>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
                                     
                                     <div 
                                         className={`text-gray-600 dark:text-gray-400 line-clamp-3 mb-2 prose prose-sm dark:prose-invert max-w-none ${isSolved ? 'solved-news-content' : ''}`}
@@ -1308,11 +1392,101 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews 
             </aside>
             {selectedNews && (
                  <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50" onClick={() => setSelectedNews(null)}>
-                                         <div className="rounded-lg shadow-2xl p-8 max-w-2xl w-full mx-4 bg-white dark:bg-gray-800" onClick={e => e.stopPropagation()} style={{borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)'}}>
+                                         <div className="rounded-lg shadow-2xl p-8 max-w-4xl w-full mx-4 bg-white dark:bg-gray-800 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()} style={{borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)'}}>
                         <div className="flex justify-between items-center mb-4">
                            <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-200">{selectedNews.title}</h2>
                            <button onClick={() => setSelectedNews(null)} className="text-gray-500 hover:text-gray-800 dark:text-gray-300 dark:hover:text-white text-3xl">&times;</button>
                         </div>
+                        
+                        {/* Imagens da notícia */}
+                        {selectedNews.images && selectedNews.images.length > 0 && (
+                            <div className="mb-4 grid grid-cols-2 md:grid-cols-3 gap-3">
+                                {selectedNews.images.map((img, idx) => (
+                                    <div key={idx} className="relative group cursor-pointer" onClick={() => setExpandedImage(img.url || img.data || img)}>
+                                        <img 
+                                            src={img.url || img.data || img} 
+                                            alt={`Imagem ${idx + 1}`}
+                                            className="w-full h-32 object-cover rounded-lg border-2 border-gray-200 dark:border-gray-700 hover:border-blue-500 transition-all"
+                                        />
+                                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all rounded-lg flex items-center justify-center">
+                                            <span className="text-white opacity-0 group-hover:opacity-100 text-sm font-medium">Clique para expandir</span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                        
+                        {/* Vídeos da notícia */}
+                        {selectedNews.videos && selectedNews.videos.length > 0 && (
+                            <div className="mb-4 space-y-3">
+                                {selectedNews.videos.map((video, idx) => {
+                                    // Se for YouTube, usar embed
+                                    if (video.youtubeId || video.type === 'youtube' || (video.url && video.url.includes('youtube.com'))) {
+                                        const videoId = video.youtubeId || extractYouTubeId(video.url || '');
+                                        if (videoId) {
+                                            return (
+                                                <div key={idx} className="relative w-full" style={{ paddingBottom: '56.25%' }}>
+                                                    <iframe
+                                                        src={`https://www.youtube.com/embed/${videoId}`}
+                                                        title={`Vídeo ${idx + 1}`}
+                                                        className="absolute top-0 left-0 w-full h-full rounded-lg"
+                                                        frameBorder="0"
+                                                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                                        allowFullScreen
+                                                    />
+                                                </div>
+                                            );
+                                        }
+                                    }
+                                    
+                                    // Se for vídeo em base64 (compatibilidade com vídeos antigos)
+                                    return (
+                                        <div key={idx} className="relative group">
+                                            <div 
+                                                className="w-full h-48 bg-gray-900 rounded-lg flex items-center justify-center cursor-pointer hover:opacity-90 transition-all"
+                                                onClick={() => setExpandedVideo(video.url || video.data || video)}
+                                            >
+                                                <div className="text-center">
+                                                    <svg className="w-16 h-16 mx-auto text-white mb-2" fill="currentColor" viewBox="0 0 20 20">
+                                                        <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
+                                                    </svg>
+                                                    <p className="text-white text-sm">Clique para reproduzir</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                        
+                        {/* Modal de imagem expandida */}
+                        {expandedImage && (
+                            <div className="fixed inset-0 bg-black bg-opacity-95 flex items-center justify-center z-[60]" onClick={() => setExpandedImage(null)}>
+                                <div className="max-w-6xl w-full mx-4 relative" onClick={e => e.stopPropagation()}>
+                                    <button onClick={() => setExpandedImage(null)} className="absolute top-4 right-4 text-white text-4xl z-10 hover:text-gray-300 transition-colors">&times;</button>
+                                    <img 
+                                        src={expandedImage} 
+                                        alt="Imagem expandida"
+                                        className="w-full h-auto rounded-lg max-h-[90vh] object-contain"
+                                    />
+                                </div>
+                            </div>
+                        )}
+                        
+                        {/* Modal de vídeo expandido */}
+                        {expandedVideo && (
+                            <div className="fixed inset-0 bg-black bg-opacity-95 flex items-center justify-center z-[60]" onClick={() => setExpandedVideo(null)}>
+                                <div className="max-w-4xl w-full mx-4 relative" onClick={e => e.stopPropagation()}>
+                                    <button onClick={() => setExpandedVideo(null)} className="absolute top-4 right-4 text-white text-4xl z-10 hover:text-gray-300 transition-colors">&times;</button>
+                                    <video 
+                                        src={expandedVideo} 
+                                        controls 
+                                        autoPlay
+                                        className="w-full rounded-lg"
+                                    />
+                                </div>
+                            </div>
+                        )}
                                                  <div 
                              className="prose dark:prose-invert max-w-none text-gray-700 dark:text-gray-300"
                              dangerouslySetInnerHTML={{ __html: selectedNews.content || '' }}
@@ -1321,6 +1495,16 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews 
                 </div>
             )}
 
+            {/* Modal Admin de Notícias */}
+            <VeloNewsAdmin
+                isOpen={showNewsAdmin}
+                onClose={() => {
+                    setShowNewsAdmin(false);
+                    setNewsToEdit(null);
+                }}
+                newsToEdit={newsToEdit}
+            />
+            
             {selectedArticle && (
                 <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 p-4" onClick={() => setSelectedArticle(null)}>
                     <div className="rounded-lg shadow-2xl max-w-4xl w-full max-h-[70vh] bg-white dark:bg-gray-800 flex flex-col" onClick={e => e.stopPropagation()} style={{borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)'}}>

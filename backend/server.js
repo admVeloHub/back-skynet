@@ -35,8 +35,38 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const { MongoClient, ObjectId } = require('mongodb');
-// Carregar variáveis de ambiente
-require('dotenv').config();
+// Carregar variáveis de ambiente (prioridade: backend/.env > backend/env > raiz/.env > raiz/env > padrão)
+const fs = require('fs');
+const backendEnvPath = path.join(__dirname, '.env');
+const backendEnvAltPath = path.join(__dirname, 'env');
+const rootEnvPath = path.join(__dirname, '..', '.env');
+const rootEnvAltPath = path.join(__dirname, '..', 'env');
+
+// Prioridade 1: .env na pasta backend (mais específico)
+if (fs.existsSync(backendEnvPath)) {
+  require('dotenv').config({ path: backendEnvPath });
+  console.log('✅ Carregando variáveis de ambiente de: backend/.env');
+}
+// Prioridade 2: env na pasta backend
+else if (fs.existsSync(backendEnvAltPath)) {
+  require('dotenv').config({ path: backendEnvAltPath });
+  console.log('✅ Carregando variáveis de ambiente de: backend/env');
+}
+// Prioridade 3: .env na raiz do projeto
+else if (fs.existsSync(rootEnvPath)) {
+  require('dotenv').config({ path: rootEnvPath });
+  console.log('✅ Carregando variáveis de ambiente de: .env (raiz)');
+}
+// Prioridade 4: env na raiz do projeto
+else if (fs.existsSync(rootEnvAltPath)) {
+  require('dotenv').config({ path: rootEnvAltPath });
+  console.log('✅ Carregando variáveis de ambiente de: env (raiz)');
+}
+// Prioridade 5: Tenta .env no diretório atual (backend)
+else {
+  require('dotenv').config();
+  console.log('⚠️ Usando dotenv padrão (nenhum arquivo .env encontrado)');
+}
 
 // Carregar configuração local para testes
 const localConfig = require('./config-local');
@@ -114,11 +144,14 @@ app.use(cors({
     process.env.CORS_ORIGIN || 'https://velohub-278491073220.us-east1.run.app',
     'http://localhost:3000',
     'http://localhost:5000',
-    'http://localhost:8080'
+    'http://localhost:8080',
+    'http://172.16.50.66:8080' // IP local da máquina
   ],
   credentials: true
 }));
-app.use(express.json());
+// Aumentar limite do body para suportar imagens/vídeos em base64
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // ===== FUNÇÕES AUXILIARES =====
 
@@ -509,12 +542,24 @@ app.get('/api/velo-news', async (req, res) => {
         _id: item._id,
         // Usando campos padrão do schema
         title: item.titulo ?? '(sem título)',
-        content: parseTextContent(item.conteudo ?? ''),
+        // Se o conteúdo já for HTML (do editor Quill), não processar
+        content: (() => {
+          const conteudo = item.conteudo ?? '';
+          // Se já contém tags HTML, retornar como está
+          if (typeof conteudo === 'string' && conteudo.includes('<')) {
+            return conteudo;
+          }
+          // Caso contrário, processar com parseTextContent
+          return parseTextContent(conteudo);
+        })(),
         is_critical: item.isCritical === true ? 'Y' : 'N',
         solved: (() => {
           console.log('🔍 BACKEND - item.solved:', item.solved, 'tipo:', typeof item.solved);
           return item.solved || false;
         })(),
+        // Suporte a imagens e vídeos
+        images: Array.isArray(item.images) ? item.images : (item.image ? [item.image] : []),
+        videos: Array.isArray(item.videos) ? item.videos : (item.video ? [item.video] : []),
         createdAt,
         updatedAt: item.updatedAt ?? createdAt,
         source: 'Velonews'
@@ -533,6 +578,147 @@ app.get('/api/velo-news', async (req, res) => {
       success: false,
       message: 'Erro ao buscar notícias',
       error: error.message
+    });
+  }
+});
+
+// POST /api/velo-news - Criar nova notícia
+app.post('/api/velo-news', async (req, res) => {
+  try {
+    if (!client) {
+      return res.status(503).json({
+        success: false,
+        error: 'MongoDB não configurado'
+      });
+    }
+
+    const { titulo, conteudo, isCritical, images, videos } = req.body;
+
+    if (!titulo || !conteudo) {
+      return res.status(400).json({
+        success: false,
+        error: 'titulo e conteudo são obrigatórios'
+      });
+    }
+
+    await connectToMongo();
+    const db = client.db('console_conteudo');
+    const collection = db.collection('Velonews');
+
+    const now = new Date();
+    const newNews = {
+      titulo: String(titulo),
+      conteudo: String(conteudo),
+      isCritical: isCritical === true || isCritical === 'Y' || isCritical === 'true',
+      solved: false,
+      images: Array.isArray(images) ? images : [],
+      videos: Array.isArray(videos) ? videos : [],
+      createdAt: now,
+      updatedAt: now
+    };
+
+    const result = await collection.insertOne(newNews);
+
+    console.log(`✅ Notícia criada: ${result.insertedId}`);
+
+    res.json({
+      success: true,
+      data: {
+        _id: result.insertedId,
+        ...newNews
+      }
+    });
+  } catch (error) {
+    console.error('❌ Erro ao criar notícia:', error);
+    console.error('❌ Stack:', error.stack);
+    
+    // Tratamento específico para erros comuns
+    let errorMessage = error.message;
+    if (error.message.includes('request entity too large')) {
+      errorMessage = 'Imagens/vídeos muito grandes. Reduza o tamanho dos arquivos.';
+    } else if (error.message.includes('MongoDB')) {
+      errorMessage = 'Erro ao conectar com o banco de dados. Tente novamente.';
+    }
+    
+    res.status(500).json({
+      success: false,
+      error: errorMessage,
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+});
+
+// PUT /api/velo-news/:id - Atualizar notícia
+app.put('/api/velo-news/:id', async (req, res) => {
+  try {
+    if (!client) {
+      return res.status(503).json({
+        success: false,
+        error: 'MongoDB não configurado'
+      });
+    }
+
+    const { id } = req.params;
+    const { titulo, conteudo, isCritical, solved, images, videos } = req.body;
+
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        error: 'ID da notícia é obrigatório'
+      });
+    }
+
+    await connectToMongo();
+    const db = client.db('console_conteudo');
+    const collection = db.collection('Velonews');
+
+    const updateData = {
+      updatedAt: new Date()
+    };
+
+    if (titulo !== undefined) updateData.titulo = String(titulo);
+    if (conteudo !== undefined) updateData.conteudo = String(conteudo);
+    if (isCritical !== undefined) updateData.isCritical = isCritical === true || isCritical === 'Y' || isCritical === 'true';
+    if (solved !== undefined) updateData.solved = solved === true || solved === 'true';
+    if (images !== undefined) updateData.images = Array.isArray(images) ? images : [];
+    if (videos !== undefined) updateData.videos = Array.isArray(videos) ? videos : [];
+
+    const result = await collection.updateOne(
+      { _id: new ObjectId(id) },
+      { $set: updateData }
+    );
+
+    if (result.matchedCount === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Notícia não encontrada'
+      });
+    }
+
+    const updated = await collection.findOne({ _id: new ObjectId(id) });
+
+    console.log(`✅ Notícia atualizada: ${id}`);
+
+    res.json({
+      success: true,
+      data: updated
+    });
+  } catch (error) {
+    console.error('❌ Erro ao atualizar notícia:', error);
+    console.error('❌ Stack:', error.stack);
+    
+    // Tratamento específico para erros comuns
+    let errorMessage = error.message;
+    if (error.message.includes('request entity too large')) {
+      errorMessage = 'Imagens/vídeos muito grandes. Reduza o tamanho dos arquivos.';
+    } else if (error.message.includes('MongoDB')) {
+      errorMessage = 'Erro ao conectar com o banco de dados. Tente novamente.';
+    }
+    
+    res.status(500).json({
+      success: false,
+      error: errorMessage,
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 });
@@ -1275,11 +1461,30 @@ app.post('/api/chatbot/clarification', async (req, res) => {
       }
       
       // Filtrar artigos por palavras-chave da pergunta
+      // Filtrar artigos com critério mais restritivo para evitar irrelevantes
       const filteredArticles = filterByKeywords(cleanQuestion, articlesData);
-      const relatedArticles = filteredArticles.slice(0, 3).map(article => ({
+      // Aplicar filtro adicional: apenas artigos com match significativo
+      const relevantArticles = filteredArticles.filter(article => {
+        const questionLower = cleanQuestion.toLowerCase();
+        const titleLower = (article.artigo_titulo || '').toLowerCase();
+        const contentLower = (article.artigo_conteudo || '').toLowerCase();
+        const tagLower = (article.tag || '').toLowerCase();
+        
+        // Verificar se há palavras-chave significativas (mais de 3 caracteres) em comum
+        const questionWords = questionLower.split(/\s+/).filter(w => w.length > 3);
+        const hasSignificantMatch = questionWords.some(word => 
+          titleLower.includes(word) || 
+          contentLower.substring(0, 500).includes(word) || 
+          tagLower.includes(word)
+        );
+        
+        return hasSignificantMatch;
+      });
+      
+      const relatedArticles = relevantArticles.slice(0, 3).map(article => ({
         id: article._id,
         title: article.artigo_titulo,
-        content: article.artigo_conteudo.substring(0, 150) + '...',
+        content: article.artigo_conteudo ? article.artigo_conteudo.substring(0, 150) + '...' : '',
         tag: article.tag,
         relevanceScore: 0.8 // Score padrão para artigos relacionados
       }));
@@ -1314,11 +1519,30 @@ app.post('/api/chatbot/clarification', async (req, res) => {
         dataCache.updateArticles(articlesData);
       }
       
+      // Filtrar artigos com critério mais restritivo para evitar irrelevantes
       const filteredArticles = filterByKeywords(cleanQuestion, articlesData);
-      const relatedArticles = filteredArticles.slice(0, 3).map(article => ({
+      // Aplicar filtro adicional: apenas artigos com match significativo
+      const relevantArticles = filteredArticles.filter(article => {
+        const questionLower = cleanQuestion.toLowerCase();
+        const titleLower = (article.artigo_titulo || '').toLowerCase();
+        const contentLower = (article.artigo_conteudo || '').toLowerCase();
+        const tagLower = (article.tag || '').toLowerCase();
+        
+        // Verificar se há palavras-chave significativas (mais de 3 caracteres) em comum
+        const questionWords = questionLower.split(/\s+/).filter(w => w.length > 3);
+        const hasSignificantMatch = questionWords.some(word => 
+          titleLower.includes(word) || 
+          contentLower.substring(0, 500).includes(word) || 
+          tagLower.includes(word)
+        );
+        
+        return hasSignificantMatch;
+      });
+      
+      const relatedArticles = relevantArticles.slice(0, 3).map(article => ({
         id: article._id,
         title: article.artigo_titulo,
-        content: article.artigo_conteudo.substring(0, 150) + '...',
+        content: article.artigo_conteudo ? article.artigo_conteudo.substring(0, 150) + '...' : '',
         tag: article.tag,
         relevanceScore: 0.8
       }));

@@ -34,6 +34,11 @@ listagem de schema de coleções do mongoDB
   conteudo: String,               // Conteúdo da notícia
   isCritical: Boolean,            // Se é notícia crítica
   solved: Boolean,                // Se a notícia foi resolvida (default: false)
+  images: Array,                   // Array de imagens [{ url: String, data: String (base64), type: String, name: String }]
+  videos: Array,                   // Array de vídeos [{ youtubeId: String (opcional), url: String, embedUrl: String (opcional), data: String (base64 - opcional), type: String, name: String }]
+  // PADRÃO DE NOMENCLATURA: camelCase para campos técnicos (images, videos, url, data, type, name, youtubeId, embedUrl)
+  // snake_case para campos de conteúdo em português (artigo_titulo, categoria_titulo)
+  // VÍDEOS: Preferir YouTube (youtubeId, embedUrl) ao invés de base64 para melhor performance
   createdAt: Date,                // Data de criação
   updatedAt: Date                 // Data de atualização
   }
