@@ -1,6 +1,6 @@
 /**
  * VeloHub V3 - ErrosBugsTab Component
- * VERSION: v1.6.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.6.1 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
  * Branch: escalacoes
  * 
  * Componente para reportar erros e bugs com anexos de imagem/vídeo
@@ -1107,8 +1107,8 @@ const ErrosBugsTab = () => {
         </div>
 
         {/* Sidebar Inferior - Histórico do Agente */}
-        <div className="w-[400px] flex-1 bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-4 hover:-translate-y-0.5 transition-transform flex flex-col">
-          <div className="mb-4">
+        <div className="w-[400px] bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-4 hover:-translate-y-0.5 transition-transform flex flex-col" style={{ height: '280px' }}>
+          <div className="mb-4 flex-shrink-0">
             <div className="flex items-center gap-2 mb-2">
               <div className="w-1.5 h-5 rounded-full bg-gradient-to-b from-sky-500 to-emerald-500" />
               <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
@@ -1119,7 +1119,7 @@ const ErrosBugsTab = () => {
               {selectedAgent || 'Selecione um agente'}
             </div>
           </div>
-          <div className="flex-1 overflow-auto pr-1">
+          <div className="flex-1 overflow-y-auto pr-1 min-h-0">
             {(!localLogs || localLogs.length === 0) && (
               <div className="text-sm opacity-70 text-gray-600 dark:text-gray-400 text-center py-8">
                 Nenhum registro.

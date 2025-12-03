@@ -1,6 +1,6 @@
 /**
  * VeloHub V3 - Backend Server
- * VERSION: v2.31.4 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.31.7 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
  */
 
 // ===== FALLBACK PARA TESTES LOCAIS =====
@@ -105,6 +105,7 @@ if (process.env.NODE_ENV === 'development') {
 }
 
 const app = express();
+// REGRA: Backend porta 8090 na rede local | Frontend porta 8080
 const PORT = process.env.PORT || 8090;
 
 // Middleware
@@ -112,9 +113,9 @@ app.use(cors({
   origin: [
     'https://app.velohub.velotax.com.br', // NOVO DOMÍNIO PERSONALIZADO
     process.env.CORS_ORIGIN || 'https://velohub-278491073220.us-east1.run.app',
-    'http://localhost:3000',
-    'http://localhost:5000',
-    'http://localhost:8080'
+    'http://localhost:8080', // Frontend padrão (regra estabelecida)
+    'http://localhost:3000', // Compatibilidade
+    'http://localhost:5000'  // Compatibilidade
   ],
   credentials: true
 }));
@@ -2339,6 +2340,56 @@ app.post('/api/velo-news/:id/acknowledge', async (req, res) => {
   }
 });
 
+// GET /api/velo-news/acknowledgments/:userEmail
+app.get('/api/velo-news/acknowledgments/:userEmail', async (req, res) => {
+  try {
+    const { userEmail } = req.params;
+    
+    if (!userEmail) {
+      return res.status(400).json({
+        success: false,
+        error: 'userEmail é obrigatório'
+      });
+    }
+
+    // Conectar ao MongoDB
+    if (!client) {
+      return res.status(503).json({
+        success: false,
+        error: 'MongoDB não configurado'
+      });
+    }
+
+    await connectToMongo();
+    const db = client.db('console_conteudo');
+    const collection = db.collection('velonews_acknowledgments');
+
+    // Buscar todos os acknowledges do usuário
+    const acknowledges = await collection.find({
+      userEmail: userEmail
+    }).toArray();
+
+    // Extrair apenas os IDs das notícias (como strings)
+    const acknowledgedNewsIds = acknowledges.map(ack => ack.newsId.toString());
+
+    console.log(`📋 Acknowledges encontrados para ${userEmail}: ${acknowledgedNewsIds.length} notícias`);
+
+    res.json({
+      success: true,
+      acknowledgedNewsIds: acknowledgedNewsIds
+    });
+
+  } catch (error) {
+    console.error('❌ Erro ao buscar acknowledges:', error.message);
+    
+    res.status(500).json({
+      success: false,
+      error: 'Erro interno do servidor',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
 // Iniciar servidor
 console.log('🔄 Iniciando servidor...');
 console.log(`📍 Porta configurada: ${PORT}`);
@@ -3063,6 +3114,82 @@ app.get('/api/support/tickets', async (req, res) => {
     res.json({ success: true, tickets: allTickets });
   } catch (error) {
     console.error('❌ Erro ao buscar tickets:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erro interno do servidor'
+    });
+  }
+});
+
+// READ - Contar tickets não visualizados (aberto ou em espera)
+app.get('/api/support/tickets/unread-count', async (req, res) => {
+  try {
+    const { userEmail } = req.query;
+    
+    if (!userEmail) {
+      return res.status(400).json({
+        success: false,
+        error: 'userEmail é obrigatório'
+      });
+    }
+
+    if (!client) {
+      return res.status(503).json({
+        success: false,
+        error: 'MongoDB não configurado'
+      });
+    }
+
+    await connectToMongo();
+    const db = client.db('console_chamados');
+    
+    // Buscar tickets com status 'aberto' ou 'em espera'
+    const [tkConteudos, tkGestao] = await Promise.all([
+      db.collection('tk_conteudos')
+        .find({ 
+          _userEmail: userEmail,
+          _statusHub: { $in: ['aberto', 'em espera'] }
+        })
+        .toArray(),
+      db.collection('tk_gestão')
+        .find({ 
+          _userEmail: userEmail,
+          _statusHub: { $in: ['aberto', 'em espera'] }
+        })
+        .toArray()
+    ]);
+    
+    // Adicionar lastMessageTimestamp a cada ticket
+    const processTickets = (tickets) => {
+      return tickets.map(ticket => {
+        let lastMessageTimestamp = ticket.updatedAt || ticket.createdAt || new Date();
+        
+        // Se _corpo é array e tem mensagens, pegar timestamp da última mensagem
+        if (Array.isArray(ticket._corpo) && ticket._corpo.length > 0) {
+          const lastMessage = ticket._corpo[ticket._corpo.length - 1];
+          if (lastMessage && lastMessage.timestamp) {
+            lastMessageTimestamp = new Date(lastMessage.timestamp);
+          }
+        }
+        
+        return {
+          ...ticket,
+          lastMessageTimestamp: lastMessageTimestamp instanceof Date ? lastMessageTimestamp.toISOString() : lastMessageTimestamp
+        };
+      });
+    };
+    
+    const processedTkConteudos = processTickets(tkConteudos);
+    const processedTkGestao = processTickets(tkGestao);
+    const allTickets = [...processedTkConteudos, ...processedTkGestao];
+    
+    res.json({ 
+      success: true, 
+      unreadCount: allTickets.length,
+      tickets: allTickets
+    });
+  } catch (error) {
+    console.error('❌ Erro ao contar tickets não visualizados:', error);
     res.status(500).json({
       success: false,
       error: 'Erro interno do servidor'

@@ -1,6 +1,6 @@
 /**
  * VeloHub V3 - Main Styles
- * VERSION: v1.2.0 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.2.4 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
  */
 
 /* ============================================= */
@@ -176,8 +176,9 @@ code {
 }
 
 /* Header no tema escuro */
-[data-theme="dark"] .velohub-header {
-    background-color: var(--blue-opaque) ;
+[data-theme="dark"] .velohub-header,
+.dark .velohub-header {
+    background: linear-gradient(135deg, var(--blue-opaque) 0%, var(--blue-medium) 100%);
     border-bottom: 1px solid rgba(255, 255, 255, 0.2);
     box-shadow: 0 3.2px 16px rgba(0, 102, 171, 0.3);
 }
@@ -222,10 +223,11 @@ code {
     background-color: var(--cor-container);
     padding: 6.4px 12.8px;
     border-radius: 6.4px;
+    transition: background-color 0.3s ease;
 }
 
 .nav-link {
-    color: #1634FF;
+    color: var(--gray);
     text-decoration: none;
     font-weight: 500;
     padding: 8px 16px;
@@ -239,14 +241,13 @@ code {
 }
 
 .nav-link:hover {
-    color: #000058;
+    color: var(--blue-dark);
     background-color: rgba(22, 52, 255, 0.1);
 }
 
 .nav-link.active {
-    color: white;
-    background-color: #1634FF;
-    box-shadow: 0 1.6px 6.4px rgba(22, 52, 255, 0.3);
+    color: var(--white);
+    background-color: var(--blue-light);
 }
 
 /* User Info */
@@ -451,7 +452,7 @@ code {
 /* == CONTAINERS DO HEADER - SEMPRE BRANCOS == */
 /* ============================================= */
 
-/* Menu de navegação - sempre branco */
+/* Menu de navegação - sempre branco no tema claro */
 .nav-menu {
     background-color: var(--white) !important;
 }
@@ -466,9 +467,24 @@ code {
     background-color: rgba(0, 0, 0, 0.05) !important;
 }
 
-/* Tema escuro - manter containers brancos */
+/* Tema escuro - container transparente para mostrar gradiente do header */
 .dark .nav-menu {
-    background-color: var(--white) !important;
+    background-color: transparent !important;
+}
+
+/* Tema escuro - botões de navegação */
+.dark .nav-link {
+    color: var(--cor-texto-secundario); /* Cinza para não selecionados */
+}
+
+.dark .nav-link:hover {
+    color: var(--cor-texto-principal);
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.dark .nav-link.active {
+    color: var(--white);
+    background-color: var(--blue-light);
 }
 
 .dark .user-info {
@@ -478,6 +494,68 @@ code {
 
 .dark .user-info:hover {
     background-color: rgba(0, 0, 0, 0.05) !important;
+}
+
+/* ============================================= */
+/* == FOOTER VELOHUB == */
+/* ============================================= */
+
+.velohub-footer {
+    background-color: var(--cor-container);
+    border-top: 1px solid rgba(0, 0, 0, 0.1);
+    padding: 9.6px 0;
+    margin-top: auto;
+    width: 100%;
+    transition: all 0.3s ease;
+}
+
+.footer-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 16px;
+}
+
+.footer-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+
+.footer-section {
+    display: flex;
+    align-items: center;
+}
+
+.footer-text {
+    color: var(--gray);
+    font-size: 0.875rem;
+    font-family: 'Poppins', sans-serif;
+    margin: 0;
+}
+
+/* Tema escuro - Footer */
+.dark .velohub-footer {
+    background-color: var(--cor-container);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.dark .footer-text {
+    color: var(--cor-texto-secundario);
+}
+
+/* Responsividade - Footer */
+@media (max-width: 768px) {
+    .footer-content {
+        flex-direction: column;
+        text-align: center;
+        gap: 8px;
+    }
+    
+    .footer-text {
+        font-size: 0.8rem;
+    }
 }
 
 /* ============================================= */

@@ -8,14 +8,19 @@ Portal de processos com chatbot inteligente integrado, sistema de notícias crí
 ## 🚀 Como Executar
 
 ### Desenvolvimento Local
+
+**REGRA DE PORTAS:**
+- **Frontend**: Porta **8080** (http://localhost:8080)
+- **Backend**: Porta **8090** (http://localhost:8090)
+
 ```bash
 # Instalar dependências
 npm install
 
-# Executar servidor backend
+# Executar servidor backend (porta 8090)
 cd backend && npm install && npm start
 
-# Executar frontend (em outro terminal)
+# Executar frontend (porta 8080) - em outro terminal
 npm start
 ```
 
@@ -115,9 +120,9 @@ VeloHub V3/
 
 ### Desenvolvimento
 ```bash
-npm start              # Frontend React
+npm start              # Frontend React (porta 8080)
 npm run build          # Build de produção
-cd backend && npm start # Backend Node.js
+cd backend && npm start # Backend Node.js (porta 8090)
 ```
 
 ### Testes e Diagnóstico

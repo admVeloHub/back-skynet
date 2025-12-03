@@ -1,6 +1,7 @@
 /**
  * VeloHub V3 - API Configuration
- * VERSION: v1.0.5 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.0.6 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
+ * REGRA: Frontend porta 8080 | Backend porta 8090 na rede local
  */
 
 /**

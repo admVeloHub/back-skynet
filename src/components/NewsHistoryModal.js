@@ -1,10 +1,10 @@
 // NewsHistoryModal - Modal para histórico completo de notícias
-// VERSION: v1.0.3 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
+// VERSION: v1.0.5 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
 
 import React, { useState, useEffect } from 'react';
 import { X, Search, Filter, Clock, CheckCircle, AlertCircle } from 'lucide-react';
 
-const NewsHistoryModal = ({ isOpen, onClose, news, onAcknowledge }) => {
+const NewsHistoryModal = ({ isOpen, onClose, news, acknowledgedNewsIds = [], onAcknowledge }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all'); // all, critical, solved, recent
   const [currentPage, setCurrentPage] = useState(1);
@@ -156,8 +156,11 @@ const NewsHistoryModal = ({ isOpen, onClose, news, onAcknowledge }) => {
             <div className="space-y-4">
               {currentNews.map(item => {
                 const isSolved = item.solved === true;
-                const isExpired = item.is_critical === 'Y' && (item.acknowledged || false) && isExpired12Hours(item.createdAt);
-                const shouldRemoveHighlight = isExpired && !isSolved;
+                // Converter ambos para string para garantir comparação correta
+                const newsIdString = String(item._id);
+                const isAcknowledged = acknowledgedNewsIds.some(id => String(id) === newsIdString);
+                // Remover destaque vermelho se foi confirmada ou se está resolvida
+                const shouldRemoveHighlight = isAcknowledged || isSolved;
                 
                 return (
                   <div

@@ -1,6 +1,6 @@
 /**
  * VeloHub V3 - Main Application Component
- * VERSION: v2.1.82 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.1.88 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
  */
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -152,13 +152,126 @@ window.debugCriticalModal = () => {
     lastCriticalNews: CriticalModalManager.getLastCriticalNews()
   });
   console.log('🧹 Para limpar o estado, execute: CriticalModalManager.debugClearState()');
-  console.log('🔄 Para forçar nova notícia, execute: CriticalModalManager.setLastCriticalNews("")');
+  console.log('🔄 Para forçar nova notícia, execute: CriticalModalManager.setLastCriticalNews("")'  );
+};
+
+// Componente do Footer
+const Footer = ({ isDarkMode }) => {
+  const currentYear = new Date().getFullYear();
+  
+  return (
+    <footer className="velohub-footer">
+      <div className="footer-container">
+        <div className="footer-content">
+          <div className="footer-section">
+            <p className="footer-text">
+              © {currentYear} VeloHub VeloTax. 
+            </p>
+          </div>
+          <div className="footer-section">
+            <p className="footer-text">
+              v2.2.0
+            </p>
+          </div>
+        </div>
+      </div>
+    </footer>
+  );
 };
 
 // Componente do Cabeçalho
 const Header = ({ activePage, setActivePage, isDarkMode, toggleDarkMode }) => {
   const navItems = ['Home', 'VeloBot', 'Artigos', 'Apoio', 'Escalações', 'VeloAcademy'];
+  const [unreadTicketsCount, setUnreadTicketsCount] = useState(0);
 
+  // Função para buscar contagem de tickets não visualizados
+  const fetchUnreadTicketsCount = async () => {
+    try {
+      const session = getUserSession();
+      if (!session?.user?.email) {
+        setUnreadTicketsCount(0);
+        return;
+      }
+
+      // Buscar tickets não visualizados do servidor
+      const response = await fetch(`${API_BASE_URL}/support/tickets/unread-count?userEmail=${encodeURIComponent(session.user.email)}`);
+      const data = await response.json();
+      
+      if (data.success) {
+        // Obter objeto de tickets visualizados do localStorage (estrutura: { "TKC-000001": "2025-01-30T10:00:00.000Z" })
+        const viewedTicketsRaw = localStorage.getItem('velohub-viewed-tickets');
+        let viewedTickets = {};
+        
+        // Migração: se for array antigo, converter para objeto
+        if (viewedTicketsRaw) {
+          try {
+            const parsed = JSON.parse(viewedTicketsRaw);
+            if (Array.isArray(parsed)) {
+              // Migrar array antigo para objeto (usar timestamp atual como fallback)
+              viewedTickets = {};
+              parsed.forEach(ticketId => {
+                viewedTickets[ticketId] = new Date().toISOString();
+              });
+              // Salvar estrutura nova
+              localStorage.setItem('velohub-viewed-tickets', JSON.stringify(viewedTickets));
+            } else {
+              viewedTickets = parsed;
+            }
+          } catch (e) {
+            console.error('Erro ao parsear viewedTickets:', e);
+            viewedTickets = {};
+          }
+        }
+        
+        // Filtrar tickets que têm novas mensagens após a última visualização
+        const unviewedTickets = data.tickets.filter(ticket => {
+          const lastViewedTimestamp = viewedTickets[ticket._id];
+          
+          // Se nunca foi visualizado, considerar como não visualizado
+          if (!lastViewedTimestamp) {
+            return true;
+          }
+          
+          // Se não tem lastMessageTimestamp, considerar como visualizado (ticket antigo)
+          if (!ticket.lastMessageTimestamp) {
+            return false;
+          }
+          
+          // Comparar timestamps: se última mensagem é mais recente que última visualização, há novas mensagens
+          const lastMessageDate = new Date(ticket.lastMessageTimestamp);
+          const lastViewedDate = new Date(lastViewedTimestamp);
+          
+          return lastMessageDate > lastViewedDate;
+        });
+        
+        setUnreadTicketsCount(unviewedTickets.length);
+      }
+    } catch (error) {
+      console.error('Erro ao buscar contagem de tickets não visualizados:', error);
+    }
+  };
+
+  // Buscar contagem quando componente monta e quando página muda para Apoio
+  useEffect(() => {
+    fetchUnreadTicketsCount();
+    
+    // Atualizar a cada 30 segundos
+    const interval = setInterval(fetchUnreadTicketsCount, 30000);
+    
+    // Escutar evento de tickets visualizados
+    const handleTicketsViewed = () => {
+      fetchUnreadTicketsCount();
+    };
+    
+    window.addEventListener('tickets-viewed', handleTicketsViewed);
+    
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('tickets-viewed', handleTicketsViewed);
+    };
+  }, [activePage]);
+
+  // Quando usuário clica em Apoio, marcar todos os tickets como visualizados
   const handleNavClick = (item) => {
     console.log('Clicou em:', item); // Debug
     
@@ -168,15 +281,54 @@ const Header = ({ activePage, setActivePage, isDarkMode, toggleDarkMode }) => {
       return; // Não muda a página ativa para VeloAcademy
     }
     
+    // Se clicou em Apoio, marcar tickets como visualizados
+    if (item === 'Apoio') {
+      markTicketsAsViewed();
+    }
+    
     console.log('Mudando para página:', item); // Debug
     setActivePage(item);
+  };
+
+  // Função para marcar tickets como visualizados
+  const markTicketsAsViewed = async () => {
+    try {
+      const session = getUserSession();
+      if (!session?.user?.email) return;
+
+      // Buscar tickets não visualizados
+      const response = await fetch(`${API_BASE_URL}/support/tickets/unread-count?userEmail=${encodeURIComponent(session.user.email)}`);
+      const data = await response.json();
+      
+      if (data.success && data.tickets.length > 0) {
+        // Obter lista atual de tickets visualizados
+        const viewedTickets = JSON.parse(localStorage.getItem('velohub-viewed-tickets') || '[]');
+        
+        // Adicionar IDs dos tickets não visualizados à lista
+        const ticketIds = data.tickets.map(ticket => ticket._id);
+        const updatedViewedTickets = [...new Set([...viewedTickets, ...ticketIds])];
+        
+        // Salvar no localStorage
+        localStorage.setItem('velohub-viewed-tickets', JSON.stringify(updatedViewedTickets));
+        
+        // Atualizar contagem
+        setUnreadTicketsCount(0);
+      }
+    } catch (error) {
+      console.error('Erro ao marcar tickets como visualizados:', error);
+    }
   };
 
   return (
     <header className="velohub-header">
       <div className="header-container">
         <div className="velohub-logo" id="logo-container">
-          <img id="logo-image" className="logo-image" src="/VeloHubLogo 2.png" alt="VeloHub Logo" />
+          <img 
+            id="logo-image" 
+            className="logo-image" 
+            src={isDarkMode ? "/VeloHubLogo darktheme.png" : "/VeloHubLogo 2.png"} 
+            alt="VeloHub Logo" 
+          />
         </div>
         
         <nav className="nav-menu">
@@ -185,8 +337,33 @@ const Header = ({ activePage, setActivePage, isDarkMode, toggleDarkMode }) => {
               key={item}
               onClick={() => handleNavClick(item)}
               className={`nav-link ${activePage === item ? 'active' : ''}`}
+              style={{ position: 'relative' }}
             >
               {item}
+              {item === 'Apoio' && unreadTicketsCount > 0 && (
+                <span
+                  style={{
+                    position: 'absolute',
+                    top: '-3px',
+                    right: '-3px',
+                    backgroundColor: '#ff0000',
+                    color: 'white',
+                    borderRadius: '50%',
+                    width: '14px',
+                    height: '14px',
+                    fontSize: '9px',
+                    fontWeight: 'bold',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    lineHeight: '1',
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                  }}
+                  title={`${unreadTicketsCount} ticket(s) não visualizado(s)`}
+                >
+                  {unreadTicketsCount > 9 ? '9+' : unreadTicketsCount}
+                </span>
+              )}
             </button>
           ))}
         </nav>
@@ -291,6 +468,7 @@ export default function App_v2() {
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [veloNews, setVeloNews] = useState([]);
+  const [acknowledgedNewsIds, setAcknowledgedNewsIds] = useState([]);
 
   useEffect(() => {
     // Verificar autenticação primeiro
@@ -362,10 +540,21 @@ export default function App_v2() {
     updateUserInfo(userData);
   };
 
+  const [refreshAcknowledgedNews, setRefreshAcknowledgedNews] = useState(null);
+  const [updateAcknowledgedNewsCallback, setUpdateAcknowledgedNewsCallback] = useState(null);
+
   const renderContent = () => {
     switch (activePage) {
       case 'Home':
-        return <HomePage setCriticalNews={setCriticalNews} setShowHistoryModal={setShowHistoryModal} setVeloNews={setVeloNews} veloNews={veloNews} />;
+        return <HomePage 
+          setCriticalNews={setCriticalNews} 
+          setShowHistoryModal={setShowHistoryModal} 
+          setVeloNews={setVeloNews} 
+          veloNews={veloNews}
+          setRefreshAcknowledgedNews={setRefreshAcknowledgedNews}
+          setAcknowledgedNewsIds={setAcknowledgedNewsIds}
+          setUpdateAcknowledgedNewsCallback={setUpdateAcknowledgedNewsCallback}
+        />;
              case 'VeloBot':
         return <ProcessosPage />;
       case 'Artigos':
@@ -377,7 +566,14 @@ export default function App_v2() {
       case 'VeloAcademy':
         return <div className="text-center p-10 text-gray-800 dark:text-gray-200"><h1 className="text-3xl">VeloAcademy</h1><p>Clique no botão VeloAcademy no header para acessar a plataforma.</p></div>;
       default:
-        return <HomePage setCriticalNews={setCriticalNews} setShowHistoryModal={setShowHistoryModal} setVeloNews={setVeloNews} veloNews={veloNews} />;
+        return <HomePage 
+          setCriticalNews={setCriticalNews} 
+          setShowHistoryModal={setShowHistoryModal} 
+          setVeloNews={setVeloNews} 
+          veloNews={veloNews}
+          setRefreshAcknowledgedNews={setRefreshAcknowledgedNews}
+          setAcknowledgedNewsIds={setAcknowledgedNewsIds}
+        />;
     }
   };
 
@@ -430,6 +626,14 @@ export default function App_v2() {
               
               if (result.success) {
                 console.log('✅ Notícia confirmada no MongoDB:', result.message);
+                // Adicionar ID imediatamente ao estado local para remover destaque vermelho
+                if (updateAcknowledgedNewsCallback) {
+                  updateAcknowledgedNewsCallback(newsId);
+                }
+                // Recarregar acknowledges do servidor para garantir sincronização
+                if (refreshAcknowledgedNews) {
+                  await refreshAcknowledgedNews();
+                }
               } else {
                 console.error('❌ Erro ao confirmar notícia:', result.error);
               }
@@ -445,6 +649,7 @@ export default function App_v2() {
         isOpen={showHistoryModal}
         onClose={() => setShowHistoryModal(false)}
         news={veloNews}
+        acknowledgedNewsIds={acknowledgedNewsIds}
         onAcknowledge={async (newsId, userName) => {
           try {
             const session = getUserSession();
@@ -466,7 +671,10 @@ export default function App_v2() {
             
             if (result.success) {
               console.log('✅ Notícia marcada como ciente no MongoDB:', result.message);
-              // Atualizar a lista de notícias se necessário
+              // Recarregar acknowledges após confirmação
+              if (refreshAcknowledgedNews) {
+                await refreshAcknowledgedNews();
+              }
             } else {
               console.error('❌ Erro ao marcar notícia como ciente:', result.error);
             }
@@ -475,8 +683,9 @@ export default function App_v2() {
           }
         }}
       />
-    </div>
-  );
+      <Footer isDarkMode={isDarkMode} />
+      </div>
+    );
 }
 
 // Componente do Widget de Ponto
@@ -605,13 +814,14 @@ const PontoWidget = () => {
 };
 
 // Conteúdo da Página Home - VERSÃO MELHORADA
-const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews }) => {
+const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews, setRefreshAcknowledgedNews, setAcknowledgedNewsIds: setParentAcknowledgedNewsIds, setUpdateAcknowledgedNewsCallback }) => {
     const [selectedNews, setSelectedNews] = useState(null);
     const [selectedArticle, setSelectedArticle] = useState(null);
     const [recentItems, setRecentItems] = useState([]);
     const [loading, setLoading] = useState(true);
     const [lastRefresh, setLastRefresh] = useState(Date.now());
     const [lastCriticalNewsId, setLastCriticalNewsId] = useState(null);
+    const [acknowledgedNewsIds, setAcknowledgedNewsIds] = useState([]);
     
     // Estados dos módulos - controlados pelo Console VeloHub
     const [moduleStatus, setModuleStatus] = useState({
@@ -648,6 +858,60 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews 
             console.error('❌ HomePage: Erro ao buscar status dos módulos:', error);
         }
     };
+
+    // Função para carregar acknowledges do usuário
+    const loadAcknowledgedNews = async () => {
+        try {
+            const session = getUserSession();
+            if (!session?.user?.email) {
+                console.log('⚠️ Usuário não autenticado, não é possível carregar acknowledges');
+                return;
+            }
+
+            const response = await fetch(`${API_BASE_URL}/velo-news/acknowledgments/${encodeURIComponent(session.user.email)}`);
+            const data = await response.json();
+            
+            if (data.success) {
+                console.log(`✅ Acknowledges carregados: ${data.acknowledgedNewsIds.length} notícias confirmadas`);
+                const acknowledgedIds = data.acknowledgedNewsIds || [];
+                setAcknowledgedNewsIds(acknowledgedIds);
+                // Atualizar também no componente pai
+                if (setParentAcknowledgedNewsIds) {
+                    setParentAcknowledgedNewsIds(acknowledgedIds);
+                }
+            } else {
+                console.error('❌ Erro ao carregar acknowledges:', data.error);
+            }
+        } catch (error) {
+            console.error('❌ Erro ao carregar acknowledges:', error);
+        }
+    };
+
+    // Função para adicionar ID imediatamente ao estado local
+    const addAcknowledgedNewsId = (newsId) => {
+        const newsIdString = String(newsId);
+        setAcknowledgedNewsIds(prev => {
+            if (!prev.includes(newsIdString) && !prev.some(id => String(id) === newsIdString)) {
+                const updated = [...prev, newsIdString];
+                // Atualizar também no componente pai
+                if (setParentAcknowledgedNewsIds) {
+                    setParentAcknowledgedNewsIds(updated);
+                }
+                return updated;
+            }
+            return prev;
+        });
+    };
+
+    // Passar função de refresh e callback de atualização para o componente pai
+    useEffect(() => {
+        if (setRefreshAcknowledgedNews) {
+            setRefreshAcknowledgedNews(() => loadAcknowledgedNews);
+        }
+        if (setUpdateAcknowledgedNewsCallback) {
+            setUpdateAcknowledgedNewsCallback(() => addAcknowledgedNewsId);
+        }
+    }, [setRefreshAcknowledgedNews, setUpdateAcknowledgedNewsCallback]);
 
     // Função para abrir modal de artigo
     const handleArticleClick = (article) => {
@@ -752,26 +1016,52 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews 
                 console.log('🔍 FRONTEND - solved valor:', sortedVeloNews[0]?.solved);
                 setVeloNews(sortedVeloNews);
                 
-                // Verificar notícias críticas - buscar a MAIS RECENTE
-                const criticalNews = sortedVeloNews.filter(n => n.is_critical === 'Y');
-                const mostRecentCritical = criticalNews.length > 0 ? criticalNews[0] : null;
+                // Carregar acknowledges primeiro
+                await loadAcknowledgedNews();
                 
-                if (mostRecentCritical) {
-                    // Criar uma chave única para a notícia crítica mais recente (ID + título)
-                    const criticalKey = `${mostRecentCritical._id}-${mostRecentCritical.title}`;
-                    
-                    // Verificar se é uma notícia crítica nova usando localStorage
-                    if (CriticalModalManager.isNewCriticalNews(criticalKey)) {
-                        CriticalModalManager.resetForNewCriticalNews();
-                        CriticalModalManager.setLastCriticalNews(criticalKey);
-                        setLastCriticalNewsId(criticalKey);
+                // Aguardar um pouco para garantir que acknowledgedNewsIds foi atualizado
+                // (usar uma função auxiliar para verificar após carregar)
+                const checkCriticalNews = async () => {
+                    // Buscar acknowledges novamente para garantir que temos os dados mais recentes
+                    const session = getUserSession();
+                    if (session?.user?.email) {
+                        try {
+                            const ackResponse = await fetch(`${API_BASE_URL}/velo-news/acknowledgments/${encodeURIComponent(session.user.email)}`);
+                            const ackData = await ackResponse.json();
+                            const currentAcknowledgedIds = ackData.success ? (ackData.acknowledgedNewsIds || []) : [];
+                            
+                            // Verificar notícias críticas - buscar a MAIS RECENTE
+                            const criticalNews = sortedVeloNews.filter(n => n.is_critical === 'Y');
+                            const mostRecentCritical = criticalNews.length > 0 ? criticalNews[0] : null;
+                            
+                            if (mostRecentCritical) {
+                                // Verificar se já foi confirmada
+                                const isAcknowledged = currentAcknowledgedIds.includes(mostRecentCritical._id);
+                                
+                                if (!isAcknowledged) {
+                                    // Criar uma chave única para a notícia crítica mais recente (ID + título)
+                                    const criticalKey = `${mostRecentCritical._id}-${mostRecentCritical.title}`;
+                                    
+                                    // Verificar se é uma notícia crítica nova usando localStorage
+                                    if (CriticalModalManager.isNewCriticalNews(criticalKey)) {
+                                        CriticalModalManager.resetForNewCriticalNews();
+                                        CriticalModalManager.setLastCriticalNews(criticalKey);
+                                        setLastCriticalNewsId(criticalKey);
+                                    }
+                                    
+                                    if (CriticalModalManager.shouldShowModal(mostRecentCritical)) {
+                                        console.log('🚨 Modal crítico exibido para notícia mais recente:', mostRecentCritical.title);
+                                        setCriticalNews(mostRecentCritical);
+                                    }
+                                }
+                            }
+                        } catch (error) {
+                            console.error('❌ Erro ao verificar notícia crítica:', error);
+                        }
                     }
-                    
-                    if (CriticalModalManager.shouldShowModal(mostRecentCritical)) {
-                        console.log('🚨 Modal crítico exibido para notícia mais recente:', mostRecentCritical.title);
-                        setCriticalNews(mostRecentCritical);
-                    }
-                }
+                };
+                
+                await checkCriticalNews();
 
                 // Buscar artigos recentes para o sidebar
                 const fetchRecentItems = async () => {
@@ -840,19 +1130,38 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews 
                     console.log('🔄 Mudanças detectadas em VeloNews, atualizando...');
                     setVeloNews(sortedNewVeloNews);
                     
-                    // Verificar notícias críticas
-                    const criticalNews = sortedNewVeloNews.filter(n => n.is_critical === 'Y');
-                    const mostRecentCritical = criticalNews.length > 0 ? criticalNews[0] : null;
+                    // Recarregar acknowledges antes de verificar notícias críticas
+                    await loadAcknowledgedNews();
                     
-                    if (mostRecentCritical) {
-                        const criticalKey = `${mostRecentCritical._id}-${mostRecentCritical.title}`;
-                        if (CriticalModalManager.isNewCriticalNews(criticalKey)) {
-                            CriticalModalManager.resetForNewCriticalNews();
-                            CriticalModalManager.setLastCriticalNews(criticalKey);
-                            setLastCriticalNewsId(criticalKey);
-                        }
-                        if (CriticalModalManager.shouldShowModal(mostRecentCritical)) {
-                            setCriticalNews(mostRecentCritical);
+                    // Verificar notícias críticas após carregar acknowledges
+                    const session = getUserSession();
+                    if (session?.user?.email) {
+                        try {
+                            const ackResponse = await fetch(`${API_BASE_URL}/velo-news/acknowledgments/${encodeURIComponent(session.user.email)}`);
+                            const ackData = await ackResponse.json();
+                            const currentAcknowledgedIds = ackData.success ? (ackData.acknowledgedNewsIds || []) : [];
+                            
+                            const criticalNews = sortedNewVeloNews.filter(n => n.is_critical === 'Y');
+                            const mostRecentCritical = criticalNews.length > 0 ? criticalNews[0] : null;
+                            
+                            if (mostRecentCritical) {
+                                // Verificar se já foi confirmada
+                                const isAcknowledged = currentAcknowledgedIds.includes(mostRecentCritical._id);
+                                
+                                if (!isAcknowledged) {
+                                    const criticalKey = `${mostRecentCritical._id}-${mostRecentCritical.title}`;
+                                    if (CriticalModalManager.isNewCriticalNews(criticalKey)) {
+                                        CriticalModalManager.resetForNewCriticalNews();
+                                        CriticalModalManager.setLastCriticalNews(criticalKey);
+                                        setLastCriticalNewsId(criticalKey);
+                                    }
+                                    if (CriticalModalManager.shouldShowModal(mostRecentCritical)) {
+                                        setCriticalNews(mostRecentCritical);
+                                    }
+                                }
+                            }
+                        } catch (error) {
+                            console.error('❌ Erro ao verificar notícia crítica no refresh:', error);
                         }
                     }
                 } else {
@@ -1215,13 +1524,29 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews 
                     ) : veloNews.length > 0 ? (
                         veloNews.slice(0, 4).map(news => {
                             const isSolved = news.solved === true;
-                            const isExpired = news.is_critical === 'Y' && news.acknowledged && isExpired12Hours(news.createdAt);
-                            const shouldRemoveHighlight = isExpired && !isSolved;
+                            // Converter ambos para string para garantir comparação correta
+                            const newsIdString = String(news._id);
+                            // Verificar se está na lista de acknowledges (comparando como strings)
+                            const isAcknowledged = acknowledgedNewsIds.some(id => String(id) === newsIdString);
+                            const isCritical = news.is_critical === 'Y';
+                            // Remover destaque vermelho se foi confirmada ou se está resolvida
+                            const shouldRemoveHighlight = isAcknowledged || isSolved;
+                            
+                            // Handler para "Ler mais"
+                            const handleReadMore = () => {
+                                if (isCritical && !isAcknowledged) {
+                                    // Abrir modal obrigatório para notícia crítica não confirmada
+                                    setCriticalNews(news);
+                                } else {
+                                    // Abrir modal normal
+                                    setSelectedNews(news);
+                                }
+                            };
                             
                             return (
                                 <div key={news._id} className={`${
                                     isSolved ? 'solved-news-frame' : 
-                                    (news.is_critical === 'Y' && !shouldRemoveHighlight ? 'critical-news-frame' : 'border-b dark:border-gray-700 pb-4 last:border-b-0')
+                                    (isCritical && !shouldRemoveHighlight ? 'critical-news-frame' : 'border-b dark:border-gray-700 pb-4 last:border-b-0')
                                 }`} style={isSolved ? {opacity: 1} : {}}>
                                     <div className="flex justify-between items-start mb-2">
                                         <h3 className="font-semibold text-lg text-gray-800 dark:text-gray-200">
@@ -1233,7 +1558,7 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews 
                                                     Resolvido
                                                 </span>
                                             )}
-                                            {news.is_critical === 'Y' && !isSolved && !shouldRemoveHighlight && (
+                                            {isCritical && !isSolved && !shouldRemoveHighlight && (
                                                 <span className="bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 px-2 py-1 rounded-full text-xs font-medium">
                                                     Crítica
                                                 </span>
@@ -1248,7 +1573,7 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews 
                                     
                                     <div className="flex justify-between items-center">
                                         <div className="flex gap-2">
-                                            <button onClick={() => setSelectedNews(news)} className="text-blue-600 dark:text-blue-400 hover:underline font-medium">
+                                            <button onClick={handleReadMore} className="text-blue-600 dark:text-blue-400 hover:underline font-medium">
                                                 Ler mais
                                             </button>
                                             
@@ -1921,6 +2246,63 @@ const TicketsListPage = () => {
 const ApoioPage = () => {
     const [activeModal, setActiveModal] = useState(null);
     const [activeTab, setActiveTab] = useState('solicitar');
+    
+    // Marcar tickets como visualizados quando a página é aberta
+    useEffect(() => {
+        const markTicketsAsViewed = async () => {
+            try {
+                const session = getUserSession();
+                if (!session?.user?.email) return;
+
+                // Buscar tickets não visualizados
+                const response = await fetch(`${API_BASE_URL}/support/tickets/unread-count?userEmail=${encodeURIComponent(session.user.email)}`);
+                const data = await response.json();
+                
+                if (data.success && data.tickets.length > 0) {
+                    // Obter objeto atual de tickets visualizados
+                    const viewedTicketsRaw = localStorage.getItem('velohub-viewed-tickets');
+                    let viewedTickets = {};
+                    
+                    // Migração: se for array antigo, converter para objeto
+                    if (viewedTicketsRaw) {
+                        try {
+                            const parsed = JSON.parse(viewedTicketsRaw);
+                            if (Array.isArray(parsed)) {
+                                // Migrar array antigo para objeto
+                                parsed.forEach(ticketId => {
+                                    viewedTickets[ticketId] = new Date().toISOString();
+                                });
+                            } else {
+                                viewedTickets = parsed;
+                            }
+                        } catch (e) {
+                            console.error('Erro ao parsear viewedTickets:', e);
+                            viewedTickets = {};
+                        }
+                    }
+                    
+                    // Timestamp atual para marcar visualização (momento em que o usuário está visualizando)
+                    const currentTimestamp = new Date().toISOString();
+                    
+                    // Atualizar timestamp de visualização para cada ticket visível
+                    // Usar timestamp atual para garantir que todas as mensagens até este momento sejam consideradas visualizadas
+                    data.tickets.forEach(ticket => {
+                        viewedTickets[ticket._id] = currentTimestamp;
+                    });
+                    
+                    // Salvar no localStorage
+                    localStorage.setItem('velohub-viewed-tickets', JSON.stringify(viewedTickets));
+                    
+                    // Disparar evento customizado para atualizar o header
+                    window.dispatchEvent(new CustomEvent('tickets-viewed'));
+                }
+            } catch (error) {
+                console.error('Erro ao marcar tickets como visualizados:', error);
+            }
+        };
+
+        markTicketsAsViewed();
+    }, []);
     
     const supportItems = [
         // Primeira linha
