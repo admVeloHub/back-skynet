@@ -1,13 +1,13 @@
 /**
  * VeloHub V3 - EscalacoesPage (Escalações Module)
- * VERSION: v1.3.2 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.3.2 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
  * Branch: escalacoes
  * 
  * Esta página contém o módulo de Escalações completo (Painel de Serviços migrado).
  * Imports do código compartilhado devem vir da main.
  * 
  * Mudanças v1.3.2:
- * - Container de histórico do agente com altura fixa (500px) e scrollável
+ * - Histórico do agente com altura fixa (70% da largura) e scrollável
  * 
  * Mudanças v1.3.1:
  * - Integrado ping de sessão no refresh automático (loadStats) para evitar sessões órfãs
@@ -712,7 +712,7 @@ const EscalacoesPage = () => {
             </div>
 
             {/* Sidebar Inferior - Histórico do Agente */}
-            <div className="w-[400px] h-[500px] bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-4 hover:-translate-y-0.5 transition-transform flex flex-col">
+            <div className="w-[400px] bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-4 hover:-translate-y-0.5 transition-transform flex flex-col" style={{ height: '280px' }}>
             <div className="mb-4 flex-shrink-0">
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-1.5 h-5 rounded-full bg-gradient-to-b from-sky-500 to-emerald-500" />
@@ -724,9 +724,9 @@ const EscalacoesPage = () => {
                 {selectedAgent || 'Selecione um agente'}
               </div>
             </div>
-            <div className="flex-1 overflow-hidden flex flex-col min-h-0">
+            <div className="flex-1 overflow-y-auto pr-1 min-h-0">
             {agentHistoryLoading && (
-              <div className="space-y-2 overflow-y-auto pr-1" aria-busy={true} aria-live="polite">
+              <div className="space-y-2" aria-busy={true} aria-live="polite">
                 {[...Array(5)].map((_, i) => (
                   <div
                     key={i}
@@ -744,7 +744,7 @@ const EscalacoesPage = () => {
               </div>
             )}
             {!agentHistoryLoading && agentHistory.length > 0 && (
-              <div className="space-y-2 overflow-y-auto pr-1 flex-1">
+              <div className="space-y-2">
                 {agentHistory.slice(0, agentHistoryLimit).map((r) => {
                   const s = String(r.status || '').toLowerCase();
                   const badge =
@@ -787,6 +787,7 @@ const EscalacoesPage = () => {
                 })}
               </div>
             )}
+            </div>
             {agentHistory.length > agentHistoryLimit && (
               <div className="mt-3 text-center flex-shrink-0">
                 <button
@@ -798,7 +799,6 @@ const EscalacoesPage = () => {
                 </button>
               </div>
             )}
-            </div>
           </div>
           </div>
         </div>
