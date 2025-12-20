@@ -1,5 +1,5 @@
 # 📋 DEPLOY LOG - VeloHub V3
-<!-- VERSION: v1.1.1 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team -->
+<!-- VERSION: v1.1.3 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team -->
 
 ## 🔐 Configuração de Ambiente GCP
 
@@ -39,6 +39,19 @@
 ---
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
+
+### **GitHub Push - Campos Obrigatórios para Exclusão de Chave PIX e Correção Formatação CPF**
+- **Data/Hora**: 2025-01-30 23:50:00
+- **Tipo**: GitHub Push
+- **Repositório**: https://github.com/admVeloHub/Inova-Hub
+- **Versão**: FormSolicitacao.jsx v1.4.0 / FormSolicitacao.js v1.9.0
+- **Commit**: 8736ac84cfbf503576ba00c81241b5f2dcbd5e74
+- **Branch**: Inovações (nova branch criada)
+- **Arquivos Modificados**:
+  - `painel de serviços/components/FormSolicitacao.jsx` (v1.4.0)
+  - `src/components/Escalacoes/FormSolicitacao.js` (v1.9.0)
+- **Descrição**: Adicionados campos selecionáveis obrigatórios para Exclusão de Chave PIX: "Sem Débito em aberto" e "N2 - Ouvidora". Validação implementada para garantir que pelo menos um dos dois campos esteja marcado. Corrigida formatação do CPF na mensagem do WhatsApp para enviar sem pontos e traços (usando `.replace(/\D/g, '')`). Correções aplicadas em ambos os formulários (painel de serviços e VeloHub principal). Branch "Inovações" criada no repositório Inova-Hub.
+- **Status**: ✅ Push realizado com sucesso
 
 ### **GitHub Push - Correção Campo Tabulação nas Respostas do Clarification**
 - **Data/Hora**: 2025-12-02 12:03:16
