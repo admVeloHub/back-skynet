@@ -18,6 +18,9 @@ export default function FormSolicitacao({ registrarLog }) {
     dividaIrpfQuitada: false,
     semDebitoAberto: false,
     n2Ouvidora: false,
+    nomeCliente: "",
+    dataContratacao: "",
+    valor: "",
     observacoes: "",
   });
   const [loading, setLoading] = useState(false);
@@ -130,6 +133,7 @@ export default function FormSolicitacao({ registrarLog }) {
       "Exclusão de Chave PIX": "Exclusão de Chave PIX",
       "Alteração de Dados Cadastrais": "Alteração de Dados Cadastrais",
       "Reativação de Conta": "Reativação de Conta",
+      "Cancelamento": "Cancelamento",
     };
     const tipoCanon = typeMap[form.tipo] || toTitleCase(String(form.tipo || ''));
     // CPF sem pontos e traços para WhatsApp
@@ -149,6 +153,11 @@ export default function FormSolicitacao({ registrarLog }) {
     } else if (form.tipo === "Exclusão de Chave PIX") {
       msg += `Sem Débito em aberto: ${simNao(form.semDebitoAberto)}\n`;
       msg += `N2 - Ouvidora: ${simNao(form.n2Ouvidora)}\n`;
+      msg += `Observações: ${form.observacoes || "—"}\n`;
+    } else if (form.tipo === "Cancelamento") {
+      msg += `Nome do Cliente: ${form.nomeCliente || "—"}\n`;
+      msg += `Data da Contratação: ${form.dataContratacao || "—"}\n`;
+      msg += `Valor: ${form.valor || "—"}\n`;
       msg += `Observações: ${form.observacoes || "—"}\n`;
     } else { // Reativação de Conta e outros
       msg += `Observações: ${form.observacoes || "—"}\n`;
@@ -340,6 +349,7 @@ export default function FormSolicitacao({ registrarLog }) {
           <option>Exclusão de Chave PIX</option>
           <option>Exclusão de Conta</option>
           <option>Reativação de Conta</option>
+          <option>Cancelamento</option>
           </select>
         </div>
       </div>
@@ -407,6 +417,45 @@ export default function FormSolicitacao({ registrarLog }) {
             /> 
             N2 - Ouvidora
           </label>
+        </div>
+      )}
+
+      {form.tipo === "Cancelamento" && (
+        <div className="bg-white p-4 rounded-lg mt-2 border border-black/10">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="text-sm text-black/80">Nome do Cliente</label>
+              <input 
+                className="input" 
+                type="text" 
+                placeholder="Nome completo do cliente"
+                value={form.nomeCliente} 
+                onChange={(e) => atualizar("nomeCliente", e.target.value)} 
+                required
+              />
+            </div>
+            <div>
+              <label className="text-sm text-black/80">Data da Contratação</label>
+              <input 
+                className="input" 
+                type="date" 
+                value={form.dataContratacao} 
+                onChange={(e) => atualizar("dataContratacao", e.target.value)} 
+                required
+              />
+            </div>
+            <div>
+              <label className="text-sm text-black/80">Valor</label>
+              <input 
+                className="input" 
+                type="text" 
+                placeholder="R$ 0,00"
+                value={form.valor} 
+                onChange={(e) => atualizar("valor", e.target.value)} 
+                required
+              />
+            </div>
+          </div>
         </div>
       )}
 

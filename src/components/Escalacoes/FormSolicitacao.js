@@ -54,6 +54,9 @@ const FormSolicitacao = ({ registrarLog }) => {
     dividaIrpfQuitada: false,
     semDebitoAberto: false,
     n2Ouvidora: false,
+    nomeCliente: '',
+    dataContratacao: '',
+    valor: '',
     observacoes: '',
   });
   const [loading, setLoading] = useState(false);
@@ -362,6 +365,7 @@ const FormSolicitacao = ({ registrarLog }) => {
       'Exclusão de Chave PIX': 'Exclusão de Chave PIX',
       'Alteração de Dados Cadastrais': 'Alteração de Dados Cadastrais',
       'Reativação de Conta': 'Reativação de Conta',
+      'Cancelamento': 'Cancelamento',
     };
     const tipoCanon = typeMap[form.tipo] || toTitleCase(String(form.tipo || 'Solicitação Técnica'));
     const cpfNorm = String(form.cpf || '').replace(/\D/g, '').trim();
@@ -390,6 +394,11 @@ const FormSolicitacao = ({ registrarLog }) => {
     } else if (form.tipo === 'Exclusão de Chave PIX') {
       msg += `Sem Débito em aberto: ${simNao(form.semDebitoAberto)}\n`;
       msg += `N2 - Ouvidora: ${simNao(form.n2Ouvidora)}\n`;
+      msg += `Observações: ${form.observacoes || '—'}\n`;
+    } else if (form.tipo === 'Cancelamento') {
+      msg += `Nome do Cliente: ${form.nomeCliente || '—'}\n`;
+      msg += `Data da Contratação: ${form.dataContratacao || '—'}\n`;
+      msg += `Valor: ${form.valor || '—'}\n`;
       msg += `Observações: ${form.observacoes || '—'}\n`;
     } else {
       // Para outros tipos (Reativação de Conta, etc.)
@@ -620,6 +629,7 @@ const FormSolicitacao = ({ registrarLog }) => {
               <option>Exclusão de Chave PIX</option>
               <option>Exclusão de Conta</option>
               <option>Reativação de Conta</option>
+              <option>Cancelamento</option>
             </select>
           </div>
         </div>
@@ -782,6 +792,45 @@ const FormSolicitacao = ({ registrarLog }) => {
               />
               <span className="text-gray-700 dark:text-gray-300">N2 - Ouvidora</span>
             </label>
+          </div>
+        )}
+
+        {form.tipo === 'Cancelamento' && (
+          <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg mt-2 border border-gray-200 dark:border-gray-700">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="text-sm text-gray-700 dark:text-gray-300">Nome do Cliente</label>
+                <input
+                  className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                  type="text"
+                  placeholder="Nome completo do cliente"
+                  value={form.nomeCliente}
+                  onChange={(e) => atualizar('nomeCliente', e.target.value)}
+                  required
+                />
+              </div>
+              <div>
+                <label className="text-sm text-gray-700 dark:text-gray-300">Data da Contratação</label>
+                <input
+                  className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                  type="date"
+                  value={form.dataContratacao}
+                  onChange={(e) => atualizar('dataContratacao', e.target.value)}
+                  required
+                />
+              </div>
+              <div>
+                <label className="text-sm text-gray-700 dark:text-gray-300">Valor</label>
+                <input
+                  className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                  type="text"
+                  placeholder="R$ 0,00"
+                  value={form.valor}
+                  onChange={(e) => atualizar('valor', e.target.value)}
+                  required
+                />
+              </div>
+            </div>
           </div>
         )}
 
