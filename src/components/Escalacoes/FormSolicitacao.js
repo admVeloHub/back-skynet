@@ -1,9 +1,15 @@
 /**
  * VeloHub V3 - FormSolicitacao Component (Escalações Module)
- * VERSION: v1.3.2 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.4.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
  * Branch: escalacoes
  * 
  * Componente de formulário para criação de solicitações técnicas
+ * 
+ * Mudanças v1.4.0:
+ * - Adicionado novo tipo de solicitação "Estorno" com checkboxes "Crédito do Trabalhador" e "Excedeu 40 dias"
+ * - Adicionado campo "Valor" para Estorno
+ * - Adicionado suporte para anexar arquivos (imagens e vídeos) no tipo Estorno
+ * - Campos do Cancelamento já estavam implementados (Nome do Cliente, Data da Contratação, Valor)
  * 
  * Mudanças v1.3.2:
  * - Agente agora vem exclusivamente da sessão logada (getUserSession)
@@ -57,8 +63,13 @@ const FormSolicitacao = ({ registrarLog }) => {
     nomeCliente: '',
     dataContratacao: '',
     valor: '',
+    creditoTrabalhador: false,
+    excedeu40Dias: false,
+    valorEstorno: '',
     observacoes: '',
   });
+  const [imagens, setImagens] = useState([]); // [{ name, type, data, preview }]
+  const [videos, setVideos] = useState([]); // [{ name, type, data, thumbnail }]
   const [loading, setLoading] = useState(false);
   const [cpfError, setCpfError] = useState('');
   const [localLogs, setLocalLogs] = useState([]); // {cpf, tipo, waMessageId, status, createdAt}
@@ -319,6 +330,12 @@ const FormSolicitacao = ({ registrarLog }) => {
     setForm(prev => {
       let valorFinal = valor;
       
+      // Limpar anexos se mudar o tipo e não for Estorno
+      if (campo === 'tipo' && valor !== 'Estorno') {
+        setImagens([]);
+        setVideos([]);
+      }
+      
       // Aplicar formatação de telefone se necessário - SEMPRE quando tipo é Telefone
       if (prev.tipo === 'Alteração de Dados Cadastrais' && prev.infoTipo === 'Telefone') {
         if (campo === 'dadoAntigo' || campo === 'dadoNovo') {
@@ -366,6 +383,7 @@ const FormSolicitacao = ({ registrarLog }) => {
       'Alteração de Dados Cadastrais': 'Alteração de Dados Cadastrais',
       'Reativação de Conta': 'Reativação de Conta',
       'Cancelamento': 'Cancelamento',
+      'Estorno': 'Estorno',
     };
     const tipoCanon = typeMap[form.tipo] || toTitleCase(String(form.tipo || 'Solicitação Técnica'));
     const cpfNorm = String(form.cpf || '').replace(/\D/g, '').trim();
@@ -400,6 +418,14 @@ const FormSolicitacao = ({ registrarLog }) => {
       msg += `Data da Contratação: ${form.dataContratacao || '—'}\n`;
       msg += `Valor: ${form.valor || '—'}\n`;
       msg += `Observações: ${form.observacoes || '—'}\n`;
+    } else if (form.tipo === 'Estorno') {
+      msg += `Crédito do Trabalhador: ${simNao(form.creditoTrabalhador)}\n`;
+      msg += `Excedeu 40 dias: ${simNao(form.excedeu40Dias)}\n`;
+      msg += `Valor: ${form.valorEstorno || '—'}\n`;
+      msg += `Observações: ${form.observacoes || '—'}\n`;
+      if (imagens.length > 0 || videos.length > 0) {
+        msg += `\n📎 Anexos: ${imagens.length} imagem(ns), ${videos.length} vídeo(s)\n`;
+      }
     } else {
       // Para outros tipos (Reativação de Conta, etc.)
       msg += `Observações: ${form.observacoes || '—'}\n`;
@@ -493,7 +519,11 @@ const FormSolicitacao = ({ registrarLog }) => {
         agente: agenteNorm || form.agente,
         cpf: form.cpf,
         tipo: form.tipo,
-        payload: { ...form },
+        payload: { 
+          ...form,
+          imagens: (form.tipo === 'Estorno' && imagens.length > 0) ? imagens : [],
+          videos: (form.tipo === 'Estorno' && videos.length > 0) ? videos : []
+        },
         mensagemTexto,
       };
 
@@ -548,7 +578,7 @@ const FormSolicitacao = ({ registrarLog }) => {
       };
       saveCache([newItem, ...localLogs].slice(0, 50));
 
-      // Limpar formulário
+      // Limpar formulário e anexos
       setForm({
         agente: agenteNorm || '',
         cpf: '',
@@ -564,6 +594,8 @@ const FormSolicitacao = ({ registrarLog }) => {
         dividaIrpfQuitada: false,
         observacoes: '',
       });
+      setImagens([]);
+      setVideos([]);
     } catch (err) {
       console.error('Erro ao enviar solicitação:', err);
       if (registrarLog) registrarLog('❌ Falha de conexão com a API.');
@@ -630,6 +662,7 @@ const FormSolicitacao = ({ registrarLog }) => {
               <option>Exclusão de Conta</option>
               <option>Reativação de Conta</option>
               <option>Cancelamento</option>
+              <option>Estorno</option>
             </select>
           </div>
         </div>
@@ -829,6 +862,144 @@ const FormSolicitacao = ({ registrarLog }) => {
                   onChange={(e) => atualizar('valor', e.target.value)}
                   required
                 />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {form.tipo === 'Estorno' && (
+          <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg mt-2 border border-gray-200 dark:border-gray-700">
+            <div className="space-y-4">
+              <div className="flex flex-col gap-3">
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    className="w-4 h-4"
+                    checked={form.creditoTrabalhador}
+                    onChange={(e) => atualizar('creditoTrabalhador', e.target.checked)}
+                  />
+                  <span className="text-gray-700 dark:text-gray-300">Crédito do Trabalhador</span>
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    className="w-4 h-4"
+                    checked={form.excedeu40Dias}
+                    onChange={(e) => atualizar('excedeu40Dias', e.target.checked)}
+                  />
+                  <span className="text-gray-700 dark:text-gray-300">Excedeu 40 dias</span>
+                </label>
+              </div>
+              <div>
+                <label className="text-sm text-gray-700 dark:text-gray-300">Valor</label>
+                <input
+                  className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                  type="text"
+                  placeholder="R$ 0,00"
+                  value={form.valorEstorno}
+                  onChange={(e) => atualizar('valorEstorno', e.target.value)}
+                  required
+                />
+              </div>
+              <div>
+                <label className="text-sm text-gray-700 dark:text-gray-300">Anexos (imagens e vídeos)</label>
+                <div className="mt-1 p-4 border-2 border-dashed rounded-lg text-center bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+                  <div className="mb-2 text-gray-700 dark:text-gray-300">Arraste e solte aqui ou clique para selecionar</div>
+                  <div className="mb-2 text-xs text-gray-600 dark:text-gray-400">Aceitamos imagens (JPG, PNG, GIF) e vídeos (MP4, WebM, MOV) - Máx 50MB por arquivo</div>
+                  <div className="flex gap-2 justify-center">
+                    <label className="inline-block px-3 py-2 rounded bg-sky-600 text-white cursor-pointer hover:bg-sky-700">
+                      Selecionar imagens
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        multiple 
+                        onChange={async (e) => {
+                          const files = Array.from(e.target.files || []);
+                          const arr = [];
+                          for (const f of files) {
+                            try {
+                              if (f.size > 50 * 1024 * 1024) {
+                                showNotification(`Arquivo ${f.name} excede 50MB`, 'error');
+                                continue;
+                              }
+                              const dataUrl = await new Promise((ok, err) => { 
+                                const r = new FileReader(); 
+                                r.onload = () => ok(String(r.result)); 
+                                r.onerror = err; 
+                                r.readAsDataURL(f); 
+                              });
+                              const base64 = String(dataUrl).split(',')[1];
+                              const preview = dataUrl;
+                              arr.push({ name: f.name, type: f.type || 'image/jpeg', data: base64, preview });
+                            } catch {}
+                          }
+                          setImagens(prev => [...prev, ...arr]);
+                        }} 
+                        className="hidden" 
+                      />
+                    </label>
+                    <label className="inline-block px-3 py-2 rounded bg-purple-600 text-white cursor-pointer hover:bg-purple-700">
+                      Selecionar vídeos
+                      <input 
+                        type="file" 
+                        accept="video/*" 
+                        multiple 
+                        onChange={async (e) => {
+                          const files = Array.from(e.target.files || []);
+                          const arr = [];
+                          for (const f of files) {
+                            try {
+                              if (f.size > 50 * 1024 * 1024) {
+                                showNotification(`Arquivo ${f.name} excede 50MB`, 'error');
+                                continue;
+                              }
+                              const dataUrl = await new Promise((ok, err) => { 
+                                const r = new FileReader(); 
+                                r.onload = () => ok(String(r.result)); 
+                                r.onerror = err; 
+                                r.readAsDataURL(f); 
+                              });
+                              const base64 = String(dataUrl).split(',')[1];
+                              arr.push({ name: f.name, type: f.type || 'video/mp4', data: base64 });
+                            } catch {}
+                          }
+                          setVideos(prev => [...prev, ...arr]);
+                        }} 
+                        className="hidden" 
+                      />
+                    </label>
+                  </div>
+                </div>
+                {(imagens.length > 0 || videos.length > 0) && (
+                  <div className="mt-3 space-y-2">
+                    {imagens.map((img, idx) => (
+                      <div key={idx} className="flex items-center gap-2 p-2 bg-gray-100 dark:bg-gray-700 rounded">
+                        <img src={img.preview} alt={img.name} className="w-12 h-12 object-cover rounded" />
+                        <span className="text-sm text-gray-700 dark:text-gray-300 flex-1">{img.name}</span>
+                        <button 
+                          type="button" 
+                          onClick={() => setImagens(prev => prev.filter((_, i) => i !== idx))}
+                          className="text-red-600 hover:text-red-800"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                    {videos.map((vid, idx) => (
+                      <div key={idx} className="flex items-center gap-2 p-2 bg-gray-100 dark:bg-gray-700 rounded">
+                        <div className="w-12 h-12 bg-purple-200 dark:bg-purple-800 rounded flex items-center justify-center">🎥</div>
+                        <span className="text-sm text-gray-700 dark:text-gray-300 flex-1">{vid.name}</span>
+                        <button 
+                          type="button" 
+                          onClick={() => setVideos(prev => prev.filter((_, i) => i !== idx))}
+                          className="text-red-600 hover:text-red-800"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </div>

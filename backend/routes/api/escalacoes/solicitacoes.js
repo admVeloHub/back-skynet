@@ -233,14 +233,41 @@ const initSolicitacoesRoutes = (client, connectToMongo, services = {}) => {
                   });
                 }
               });
+            } else {
+              // Processar imagens diretamente do array (formato: { data: base64, type: mimeType })
+              payload.imagens.forEach((img) => {
+                if (img && img.data) {
+                  // Remover prefixo data:image se existir no campo data
+                  const base64Data = String(img.data).replace(/^data:image\/[^;]+;base64,/, '');
+                  imagens.push({
+                    data: base64Data,
+                    type: img.type || 'image/jpeg'
+                  });
+                }
+              });
             }
+          }
+          
+          // Extrair vídeos do payload se existirem
+          const videos = [];
+          if (payload && payload.videos && Array.isArray(payload.videos)) {
+            payload.videos.forEach((vid) => {
+              if (vid && vid.data) {
+                // Remover prefixo data:video se existir no campo data
+                const base64Data = String(vid.data).replace(/^data:video\/[^;]+;base64,/, '');
+                videos.push({
+                  data: base64Data,
+                  type: vid.type || 'video/mp4'
+                });
+              }
+            });
           }
           
           const whatsappResult = await whatsappService.sendMessage(
             config.WHATSAPP_DEFAULT_JID,
             mensagemTexto,
             imagens,
-            [],
+            videos,
             {
               cpf: solicitacao.cpf,
               solicitacao: tipo,
