@@ -33,10 +33,10 @@ Adicione no Render (Environment):
 ```env
 NODE_ENV=production
 PORT=8080
-MONGO_ENV=sua_uri_mongodb
+# MONGO_ENV não será usado - não configurar
 GOOGLE_CLIENT_ID=seu_client_id
 GOOGLE_CLIENT_SECRET=seu_client_secret
-OPENAI_API_KEY=sua_chave_openai
+OPENAI_API_KEY=sua_chave-openai
 GEMINI_API_KEY=sua_chave_gemini
 WHATSAPP_API_URL=https://sua-api-baileys.com
 WHATSAPP_DEFAULT_JID=5511943952784@s.whatsapp.net

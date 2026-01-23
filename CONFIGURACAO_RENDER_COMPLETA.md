@@ -6,6 +6,26 @@
 
 Este documento contém **TODAS** as informações necessárias para configurar o backend VeloHub no Render.com.
 
+## ⚠️ IMPORTANTE: MongoDB Não Será Usado
+
+**MongoDB foi removido da configuração.** O backend funcionará sem banco de dados.
+
+### ✅ Funcionalidades Disponíveis (Sem MongoDB)
+
+- ✅ Health Check (`/api/test`)
+- ✅ Envio de Relatórios via WhatsApp (`/api/escalacoes/reports/*`)
+- ✅ APIs que não dependem de banco de dados
+
+### ❌ Funcionalidades Não Disponíveis (Requerem MongoDB)
+
+- ❌ Chatbot (Bot_perguntas, Artigos, Velonews)
+- ❌ Logs de atividade e sessões
+- ❌ Módulo de Escalações completo (solicitações, erros-bugs)
+- ❌ Status dos módulos
+- ❌ Feedback do chatbot
+
+**Nota:** O servidor iniciará normalmente, mas essas funcionalidades retornarão erro 503.
+
 ---
 
 ## 🚀 PASSO 1: Criar Conta e Conectar Repositório
@@ -68,17 +88,17 @@ PORT=8080
 
 ### 3.2 Database - MongoDB
 
+⚠️ **NÃO SERÁ USADO** - MongoDB foi removido da configuração.
+
+**Nota:** Algumas funcionalidades que dependem do MongoDB não estarão disponíveis:
+- Chatbot (Bot_perguntas, Artigos, Velonews)
+- Logs de atividade e sessões
+- Módulo de Escalações (solicitações, erros-bugs)
+- Status dos módulos
+
+**Se precisar usar MongoDB no futuro:**
 ```env
 MONGO_ENV=mongodb+srv://usuario:senha@cluster.mongodb.net/console_conteudo?retryWrites=true&w=majority
-```
-
-**Como obter:**
-- MongoDB Atlas: Database → Connect → Connect your application
-- Ou do GCP Secret Manager: `MONGO_ENV`
-
-**Formato completo:**
-```
-mongodb+srv://[username]:[password]@[cluster].mongodb.net/[database]?retryWrites=true&w=majority&appName=[app-name]
 ```
 
 ---
@@ -204,7 +224,8 @@ PORT=8080
 # ===========================================
 # DATABASE
 # ===========================================
-MONGO_ENV=mongodb+srv://usuario:senha@cluster.mongodb.net/console_conteudo?retryWrites=true&w=majority
+# MongoDB NÃO será usado - NÃO configurar MONGO_ENV
+# Deixar esta seção vazia ou comentada
 
 # ===========================================
 # GOOGLE OAUTH
@@ -261,7 +282,7 @@ CHATBOT_CACHE_TIMEOUT=300000
 - [ ] Start Command: `npm start`
 - [ ] Health Check: `/api/test`
 - [ ] Todas as variáveis de ambiente configuradas
-- [ ] `MONGO_ENV` com URI completa e válida
+- [ ] `MONGO_ENV` NÃO configurado (MongoDB não será usado)
 - [ ] `GOOGLE_CLIENT_ID` e `GOOGLE_CLIENT_SECRET` configurados
 - [ ] `WHATSAPP_API_URL` apontando para API Baileys ativa
 
@@ -426,16 +447,21 @@ Para produção, considere aumentar conforme necessário.
 3. Verifique se `Start Command` está correto: `npm start`
 4. Confirme que `backend/package.json` tem script `start`
 
-### Problema: Erro de Conexão MongoDB
+### Problema: Funcionalidades Não Disponíveis
 
 **Sintomas:**
-- Erro: "MongoServerError" ou "Connection failed"
+- Erro: "MongoDB não configurado"
+- APIs retornam erro 503
 
 **Solução:**
-1. Verifique se `MONGO_ENV` está configurado corretamente
-2. Confirme que a URI está completa e válida
-3. Verifique se o IP do Render está permitido no MongoDB Atlas
-4. No MongoDB Atlas: Network Access → Add IP Address → `0.0.0.0/0` (permitir todos)
+- Isso é esperado se MongoDB não está configurado
+- Funcionalidades que dependem do MongoDB não estarão disponíveis:
+  - Chatbot (Bot_perguntas, Artigos)
+  - Logs de atividade
+  - Módulo de Escalações (algumas funcionalidades)
+- APIs que não dependem do MongoDB continuarão funcionando:
+  - Health check (`/api/test`)
+  - Relatórios WhatsApp (`/api/escalacoes/reports/*`)
 
 ### Problema: WhatsApp Desconectado
 
@@ -562,10 +588,11 @@ git push natralha main
 
 1. **Root Directory:** Sempre `backend` (não raiz do projeto)
 2. **Variáveis Sensíveis:** Nunca commite no código, sempre use variáveis de ambiente
-3. **MongoDB IP:** Adicione `0.0.0.0/0` no MongoDB Atlas para permitir Render
-4. **Free Tier:** Entra em sleep após 15 min - primeira requisição pode demorar
-5. **Logs:** Sempre verifique os logs para diagnosticar problemas
-6. **Health Check:** Configure corretamente para o Render saber quando o serviço está saudável
+3. **MongoDB:** NÃO será usado - não configure `MONGO_ENV`
+4. **Funcionalidades Disponíveis:** Apenas APIs que não dependem do MongoDB funcionarão
+5. **Free Tier:** Entra em sleep após 15 min - primeira requisição pode demorar
+6. **Logs:** Sempre verifique os logs para diagnosticar problemas
+7. **Health Check:** Configure corretamente para o Render saber quando o serviço está saudável
 
 ---
 
