@@ -52,7 +52,8 @@ router.post('/tabulation', async (req, res) => {
       contactReason: contactReason || null,
       sentiment: sentiment || null,
       directedCenter: directedCenter !== undefined ? Boolean(directedCenter) : false,
-      link: link || null
+      link: link || null,
+      createdAt: createdAt || null
     };
 
     // OUTBOUND: Schema sendo enviado para MongoDB
