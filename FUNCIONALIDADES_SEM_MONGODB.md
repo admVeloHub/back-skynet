@@ -1,61 +1,30 @@
-# 📋 Funcionalidades Disponíveis - Sem MongoDB
+# 📋 Funcionalidades Disponíveis - Projeto Baileys/WhatsApp
 
 <!-- VERSION: v1.0.0 | DATE: 2025-01-23 | AUTHOR: VeloHub Development Team -->
 
+## 🎯 Objetivo do Projeto
+
+Este projeto usa **APENAS** as funcionalidades do Baileys para envio de relatórios via WhatsApp.
+
+**Não usa MongoDB** - Funciona completamente sem banco de dados.
+
+---
+
 ## ✅ Funcionalidades Disponíveis
 
-### APIs que Funcionam Sem MongoDB
-
-#### 1. Health Check
+### 1. Health Check
 - **Endpoint:** `GET /api/test`
 - **Status:** ✅ Funcional
 - **Descrição:** Verifica se o servidor está rodando
 
-#### 2. Relatórios via WhatsApp
+### 2. Relatórios via WhatsApp (Baileys)
 - **Endpoints:**
-  - `POST /api/escalacoes/reports/send` - Enviar relatório
-  - `POST /api/escalacoes/reports/send-with-image` - Enviar com imagem
+  - `POST /api/escalacoes/reports/send` - Enviar relatório de texto
+  - `POST /api/escalacoes/reports/send-with-image` - Enviar relatório com imagem
   - `GET /api/escalacoes/reports/test` - Testar serviço
 - **Status:** ✅ Funcional
-- **Descrição:** Envio de relatórios formatados via WhatsApp
-
-#### 3. Outras APIs
-- APIs que não fazem operações de banco de dados
-
----
-
-## ❌ Funcionalidades Não Disponíveis
-
-### Requerem MongoDB
-
-#### 1. Chatbot
-- **Endpoints:** `/api/chatbot/*`
-- **Status:** ❌ Não funcional
-- **Motivo:** Depende de `Bot_perguntas`, `Artigos`, `Velonews` no MongoDB
-
-#### 2. Módulo de Escalações
-- **Endpoints:**
-  - `/api/escalacoes/solicitacoes/*` - Criar/buscar solicitações
-  - `/api/escalacoes/erros-bugs/*` - Criar/buscar erros
-  - `/api/escalacoes/logs/*` - Logs de uso
-- **Status:** ❌ Não funcional (parcial)
-- **Motivo:** Depende de MongoDB para persistência
-- **Exceção:** Envio de relatórios funciona (não salva no banco)
-
-#### 3. Logs e Sessões
-- **Endpoints:** Logs de atividade e sessões
-- **Status:** ❌ Não funcional
-- **Motivo:** Depende de MongoDB
-
-#### 4. Status dos Módulos
-- **Endpoints:** `/api/module-status/*`
-- **Status:** ❌ Não funcional
-- **Motivo:** Depende de MongoDB
-
-#### 5. Feedback do Chatbot
-- **Endpoints:** `/api/feedback/*`
-- **Status:** ❌ Não funcional
-- **Motivo:** Depende de MongoDB
+- **Descrição:** Envio de relatórios formatados via WhatsApp usando API Baileys
+- **Não requer MongoDB** - Funciona completamente sem banco de dados
 
 ---
 
@@ -91,18 +60,24 @@ CORS_ORIGIN=https://seu-frontend.com
 
 ## 📝 Notas Importantes
 
-1. **Servidor Iniciará:** O backend iniciará normalmente mesmo sem MongoDB
-2. **APIs Retornarão Erro:** APIs que dependem do MongoDB retornarão erro 503
-3. **Relatórios WhatsApp:** Funcionam perfeitamente sem MongoDB
-4. **Health Check:** Sempre funciona, independente do MongoDB
+1. **Servidor Iniciará:** O backend iniciará normalmente sem MongoDB
+2. **Relatórios WhatsApp:** Funcionam perfeitamente sem MongoDB - usa apenas API Baileys
+3. **Health Check:** Sempre funciona, independente do MongoDB
+4. **API Baileys:** Deve estar rodando em outro serviço (Render, Railway, etc.)
+5. **WhatsApp Conectado:** A API Baileys deve estar conectada ao WhatsApp (QR code escaneado)
 
 ---
 
-## 🔄 Se Precisar Adicionar MongoDB no Futuro
+## 🔧 Configuração Mínima
 
-1. Configure `MONGO_ENV` no Render
-2. Adicione IP do Render no MongoDB Atlas (Network Access)
-3. Reinicie o serviço no Render
+Apenas estas variáveis são necessárias:
+
+```env
+NODE_ENV=production
+PORT=8080
+WHATSAPP_API_URL=https://sua-api-baileys.com
+WHATSAPP_DEFAULT_JID=5511943952784@s.whatsapp.net
+```
 
 ---
 

@@ -6,25 +6,19 @@
 
 Este documento contém **TODAS** as informações necessárias para configurar o backend VeloHub no Render.com.
 
-## ⚠️ IMPORTANTE: MongoDB Não Será Usado
+## ⚠️ IMPORTANTE: Apenas Funcionalidades Baileys/WhatsApp
 
-**MongoDB foi removido da configuração.** O backend funcionará sem banco de dados.
+**Este projeto usa APENAS as funcionalidades do Baileys para envio de relatórios via WhatsApp.**
 
-### ✅ Funcionalidades Disponíveis (Sem MongoDB)
+### ✅ Funcionalidades Disponíveis
 
 - ✅ Health Check (`/api/test`)
 - ✅ Envio de Relatórios via WhatsApp (`/api/escalacoes/reports/*`)
-- ✅ APIs que não dependem de banco de dados
+  - `POST /api/escalacoes/reports/send` - Enviar relatório de texto
+  - `POST /api/escalacoes/reports/send-with-image` - Enviar relatório com imagem
+  - `GET /api/escalacoes/reports/test` - Testar serviço
 
-### ❌ Funcionalidades Não Disponíveis (Requerem MongoDB)
-
-- ❌ Chatbot (Bot_perguntas, Artigos, Velonews)
-- ❌ Logs de atividade e sessões
-- ❌ Módulo de Escalações completo (solicitações, erros-bugs)
-- ❌ Status dos módulos
-- ❌ Feedback do chatbot
-
-**Nota:** O servidor iniciará normalmente, mas essas funcionalidades retornarão erro 503.
+**Não requer MongoDB** - O serviço de relatórios funciona completamente sem banco de dados.
 
 ---
 
@@ -88,18 +82,9 @@ PORT=8080
 
 ### 3.2 Database - MongoDB
 
-⚠️ **NÃO SERÁ USADO** - MongoDB foi removido da configuração.
+⚠️ **NÃO SERÁ USADO** - Este projeto não usa MongoDB.
 
-**Nota:** Algumas funcionalidades que dependem do MongoDB não estarão disponíveis:
-- Chatbot (Bot_perguntas, Artigos, Velonews)
-- Logs de atividade e sessões
-- Módulo de Escalações (solicitações, erros-bugs)
-- Status dos módulos
-
-**Se precisar usar MongoDB no futuro:**
-```env
-MONGO_ENV=mongodb+srv://usuario:senha@cluster.mongodb.net/console_conteudo?retryWrites=true&w=majority
-```
+O serviço de relatórios via WhatsApp funciona completamente sem banco de dados, usando apenas a API Baileys para envio de mensagens.
 
 ---
 
@@ -447,32 +432,18 @@ Para produção, considere aumentar conforme necessário.
 3. Verifique se `Start Command` está correto: `npm start`
 4. Confirme que `backend/package.json` tem script `start`
 
-### Problema: Funcionalidades Não Disponíveis
-
-**Sintomas:**
-- Erro: "MongoDB não configurado"
-- APIs retornam erro 503
-
-**Solução:**
-- Isso é esperado se MongoDB não está configurado
-- Funcionalidades que dependem do MongoDB não estarão disponíveis:
-  - Chatbot (Bot_perguntas, Artigos)
-  - Logs de atividade
-  - Módulo de Escalações (algumas funcionalidades)
-- APIs que não dependem do MongoDB continuarão funcionando:
-  - Health check (`/api/test`)
-  - Relatórios WhatsApp (`/api/escalacoes/reports/*`)
-
 ### Problema: WhatsApp Desconectado
 
 **Sintomas:**
-- Erro ao enviar relatórios: "WhatsApp desconectado"
+- Erro ao enviar relatórios: "WhatsApp desconectado" ou "Erro ao enviar mensagem"
 
 **Solução:**
-1. Verifique se `WHATSAPP_API_URL` está correto
-2. Confirme que a API Baileys está rodando e conectada
-3. Teste a API diretamente: `curl https://sua-api-baileys.com/ping`
-4. Verifique se o WhatsApp está conectado na API Baileys
+1. Verifique se `WHATSAPP_API_URL` está correto e acessível
+2. Confirme que a API Baileys está rodando e conectada ao WhatsApp
+3. Teste a API diretamente: `curl https://sua-api-baileys.com/ping` ou `/status`
+4. Verifique se o WhatsApp está conectado na API Baileys (QR code escaneado)
+5. Confirme que `WHATSAPP_DEFAULT_JID` está no formato correto: `5511943952784@s.whatsapp.net`
+
 
 ### Problema: Timeout nas Requisições
 
@@ -589,10 +560,12 @@ git push natralha main
 1. **Root Directory:** Sempre `backend` (não raiz do projeto)
 2. **Variáveis Sensíveis:** Nunca commite no código, sempre use variáveis de ambiente
 3. **MongoDB:** NÃO será usado - não configure `MONGO_ENV`
-4. **Funcionalidades Disponíveis:** Apenas APIs que não dependem do MongoDB funcionarão
-5. **Free Tier:** Entra em sleep após 15 min - primeira requisição pode demorar
-6. **Logs:** Sempre verifique os logs para diagnosticar problemas
-7. **Health Check:** Configure corretamente para o Render saber quando o serviço está saudável
+4. **Funcionalidade Principal:** Apenas envio de relatórios via WhatsApp (Baileys)
+5. **WHATSAPP_API_URL:** Deve apontar para a API Baileys rodando (ex: Render, Railway, etc.)
+6. **WHATSAPP_DEFAULT_JID:** Formato: `5511943952784@s.whatsapp.net` (código país + DDD + número)
+7. **Free Tier:** Entra em sleep após 15 min - primeira requisição pode demorar
+8. **Logs:** Sempre verifique os logs para diagnosticar problemas
+9. **Health Check:** Configure corretamente para o Render saber quando o serviço está saudável
 
 ---
 
