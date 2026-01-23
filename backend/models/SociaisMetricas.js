@@ -44,7 +44,7 @@ class SociaisMetricas {
         };
       }
 
-      const validReasons = ['Comercial', 'Suporte', 'Bug', 'Elogio'];
+      const validReasons = ['Produto', 'Suporte', 'Bug', 'Elogio', 'Reclamação', ' Oculto '];
       if (tabulationData.contactReason && !validReasons.includes(tabulationData.contactReason)) {
         return {
           success: false,
@@ -217,7 +217,7 @@ class SociaisMetricas {
       }
 
       if (updateData.contactReason) {
-        const validReasons = ['Comercial', 'Suporte', 'Bug', 'Elogio'];
+        const validReasons = ['Produto', 'Suporte', 'Bug', 'Elogio', 'Reclamação', ' Oculto '];
         if (!validReasons.includes(updateData.contactReason)) {
           return {
             success: false,
