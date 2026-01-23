@@ -21,10 +21,19 @@ const getGeminiService = () => {
 // POST /api/sociais/tabulation - Criar nova tabulação
 router.post('/tabulation', async (req, res) => {
   try {
+    // Garantir que o banco está conectado antes de processar
+    const { connectToDatabase } = require('../config/database');
+    try {
+      await connectToDatabase();
+    } catch (dbError) {
+      console.error('❌ Erro ao conectar ao MongoDB:', dbError.message);
+      // Não bloquear se já estiver conectado
+    }
+    
     global.emitTraffic('Sociais', 'received', 'Entrada recebida - POST /api/sociais/tabulation');
     global.emitLog('info', 'POST /api/sociais/tabulation - Criando nova tabulação');
     
-    const { clientName, socialNetwork, messageText, rating, contactReason, sentiment, directedCenter, link } = req.body;
+    const { clientName, socialNetwork, messageText, rating, contactReason, sentiment, directedCenter, link, createdAt } = req.body;
     
     if (!clientName || !socialNetwork || !messageText) {
       global.emitTraffic('Sociais', 'error', 'Dados obrigatórios ausentes');
