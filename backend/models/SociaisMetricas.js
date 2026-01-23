@@ -212,7 +212,7 @@ class SociaisMetricas {
       // Verificar conexão do banco antes de executar
       let collection;
       try {
-        collection = this.getCollection();
+        collection = await this.getCollection();
       } catch (dbError) {
         console.error('❌ [SociaisMetricas] getAll - Banco não conectado:', dbError.message);
         return {
